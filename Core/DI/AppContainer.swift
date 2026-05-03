@@ -7,6 +7,10 @@ final class AppContainer: ObservableObject {
     let db: AppDatabase
     let permissions: PermissionsService
     let sizeCalculator: FileSizeCalculator
+    let ruleEngine: RuleEngine
+    let quarantine: QuarantineService
+    let systemJunkScanner: SystemJunkScanner
+    let trashBinScanner: TrashBinScanner
 
     init() {
         let database: AppDatabase
@@ -24,6 +28,23 @@ final class AppContainer: ObservableObject {
         self.db = database
         self.permissions = PermissionsService()
         self.sizeCalculator = FileSizeCalculator()
+
+        let ruleEngine = RuleEngine()
+        let quarantine = QuarantineService()
+        self.ruleEngine = ruleEngine
+        self.quarantine = quarantine
+        self.systemJunkScanner = SystemJunkScanner(ruleEngine: ruleEngine, quarantine: quarantine)
+        self.trashBinScanner = TrashBinScanner(quarantine: quarantine)
+
         Log.app.info("AppContainer initialised")
+
+        Task { [ruleEngine, quarantine] in
+            do {
+                try await ruleEngine.loadSystemJunkRules()
+            } catch {
+                Log.scanner.error("Failed to load rules: \(error.localizedDescription, privacy: .public)")
+            }
+            await quarantine.purgeOld()
+        }
     }
 }

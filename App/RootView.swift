@@ -30,6 +30,20 @@ struct RootView: View {
         switch selection {
         case .smartCare:
             SmartCareView()
+        case .systemJunk:
+            CleanupModuleView(
+                scanner: container.systemJunkScanner,
+                title: "System Junk",
+                subtitle: "Caches, logs, dev-tool junk",
+                symbol: "trash.circle"
+            )
+        case .trashBins:
+            CleanupModuleView(
+                scanner: container.trashBinScanner,
+                title: "Trash Bins",
+                subtitle: "Items in user and external-volume trash",
+                symbol: "trash"
+            )
         default:
             ModulePlaceholderView(selection: selection)
         }
