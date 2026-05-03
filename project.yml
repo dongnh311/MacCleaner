@@ -57,3 +57,22 @@ targets:
         ENABLE_HARDENED_RUNTIME: YES
         SKIP_INSTALL: YES
         INSTALL_PATH: /Library/PrivilegedHelperTools
+
+  DownloadsLister:
+    type: application
+    platform: macOS
+    sources:
+      - path: Phase0/DownloadsLister
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.dong.MacCleaner.Phase0.DownloadsLister
+        PRODUCT_NAME: DownloadsLister
+        ENABLE_HARDENED_RUNTIME: YES
+        ENABLE_PREVIEWS: YES
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.developer-tools
+        INFOPLIST_KEY_NSHumanReadableCopyright: "© 2026 Đông"
+        INFOPLIST_KEY_NSHighResolutionCapable: YES
+        INFOPLIST_KEY_LSMinimumSystemVersion: "13.0"
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
