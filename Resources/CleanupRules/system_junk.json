@@ -243,6 +243,153 @@
       "requiresAdmin": false,
       "minimumAgeDays": null,
       "mode": "eachChildAsItem"
+    },
+    {
+      "id": "library_application_support",
+      "name": "App data — Application Support",
+      "description": "Per-app local data (settings, indexes, plugins). Quarantined for 7 days when removed — review carefully.",
+      "paths": ["~/Library/Application Support"],
+      "exclusions": [
+        "~/Library/Application Support/com.apple.TCC",
+        "~/Library/Application Support/com.apple.spotlight",
+        "~/Library/Application Support/com.apple.sharedfilelist",
+        "~/Library/Application Support/MobileSync",
+        "~/Library/Application Support/CallHistoryDB",
+        "~/Library/Application Support/CallHistoryTransactions",
+        "~/Library/Application Support/CrashReporter",
+        "~/Library/Application Support/AddressBook",
+        "~/Library/Application Support/iCloud",
+        "~/Library/Application Support/MacCleaner"
+      ],
+      "category": "other",
+      "safetyLevel": "review",
+      "requiresAdmin": false,
+      "minimumAgeDays": null,
+      "mode": "eachChildAsItem"
+    },
+    {
+      "id": "library_containers",
+      "name": "Sandboxed app containers",
+      "description": "Per-app sandbox containers. Removing one resets that app's settings + cache.",
+      "paths": ["~/Library/Containers"],
+      "exclusions": [
+        "~/Library/Containers/com.apple.iCloud.fmfd",
+        "~/Library/Containers/com.apple.Notes",
+        "~/Library/Containers/com.apple.mail"
+      ],
+      "category": "other",
+      "safetyLevel": "review",
+      "requiresAdmin": false,
+      "minimumAgeDays": null,
+      "mode": "eachChildAsItem"
+    },
+    {
+      "id": "library_group_containers",
+      "name": "Group Containers",
+      "description": "Shared sandbox storage between an app and its extensions. Re-created on next launch.",
+      "paths": ["~/Library/Group Containers"],
+      "exclusions": null,
+      "category": "other",
+      "safetyLevel": "review",
+      "requiresAdmin": false,
+      "minimumAgeDays": null,
+      "mode": "eachChildAsItem"
+    },
+    {
+      "id": "library_http_storages",
+      "name": "HTTP storage caches",
+      "description": "WKWebView HTTP cache per app — regenerated on demand.",
+      "paths": ["~/Library/HTTPStorages"],
+      "exclusions": null,
+      "category": "user_cache",
+      "safetyLevel": "safe",
+      "requiresAdmin": false,
+      "minimumAgeDays": null,
+      "mode": "eachChildAsItem"
+    },
+    {
+      "id": "library_webkit",
+      "name": "WebKit data per app",
+      "description": "WebKit storage created by apps embedding web views.",
+      "paths": ["~/Library/WebKit"],
+      "exclusions": null,
+      "category": "user_cache",
+      "safetyLevel": "safe",
+      "requiresAdmin": false,
+      "minimumAgeDays": null,
+      "mode": "eachChildAsItem"
+    },
+    {
+      "id": "library_cookies",
+      "name": "App cookie store",
+      "description": "Per-app cookie binplists. Apps re-create as needed.",
+      "paths": ["~/Library/Cookies"],
+      "exclusions": null,
+      "category": "user_cache",
+      "safetyLevel": "safe",
+      "requiresAdmin": false,
+      "minimumAgeDays": null,
+      "mode": "eachChildAsItem"
+    },
+    {
+      "id": "library_metadata_corespotlight",
+      "name": "CoreSpotlight metadata",
+      "description": "Per-app Spotlight index files — Spotlight re-indexes on demand.",
+      "paths": ["~/Library/Metadata/CoreSpotlight"],
+      "exclusions": null,
+      "category": "user_cache",
+      "safetyLevel": "safe",
+      "requiresAdmin": false,
+      "minimumAgeDays": null,
+      "mode": "eachChildAsItem"
+    },
+    {
+      "id": "library_developer_coresimulator_devices",
+      "name": "iOS Simulator devices",
+      "description": "Each subfolder is a simulator device with its own apps + data. Older / unused devices can be huge.",
+      "paths": ["~/Library/Developer/CoreSimulator/Devices"],
+      "exclusions": null,
+      "category": "xcode_junk",
+      "safetyLevel": "review",
+      "requiresAdmin": false,
+      "minimumAgeDays": null,
+      "mode": "eachChildAsItem"
+    },
+    {
+      "id": "library_developer_xcode_user_data",
+      "name": "Xcode user data — UserData",
+      "description": "Per-project UserData (breakpoints, schemes, snapshots). Older entries are usually safe to drop.",
+      "paths": ["~/Library/Developer/Xcode/UserData"],
+      "exclusions": null,
+      "category": "xcode_junk",
+      "safetyLevel": "review",
+      "requiresAdmin": false,
+      "minimumAgeDays": 60,
+      "mode": "eachChildAsItem"
+    },
+    {
+      "id": "library_developer_xcode_user_states",
+      "name": "Xcode user states",
+      "description": "Old workspace state caches — repopulated on first build.",
+      "paths": ["~/Library/Developer/Xcode/UserStates"],
+      "exclusions": null,
+      "category": "xcode_junk",
+      "safetyLevel": "safe",
+      "requiresAdmin": false,
+      "minimumAgeDays": null,
+      "mode": "eachChildAsItem"
+    },
+    {
+      "id": "library_assistant",
+      "name": "Siri assistant caches",
+      "description": "Older Siri suggestions and assets.",
+      "paths": ["~/Library/Assistant/SiriVocabulary"],
+      "exclusions": null,
+      "category": "user_cache",
+      "safetyLevel": "review",
+      "requiresAdmin": false,
+      "minimumAgeDays": 30,
+      "mode": "wholePathAsItem"
     }
   ]
 }
