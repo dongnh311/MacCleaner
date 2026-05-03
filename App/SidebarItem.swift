@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 enum SidebarSection: String, CaseIterable, Hashable {
     case scan = "SCAN"
@@ -99,6 +100,34 @@ enum SidebarItem: String, CaseIterable, Hashable, Identifiable {
         case .similarPhotos: return "photo.on.rectangle.angled"
         case .shredder: return "scissors"
         case .myTools: return "star"
+        }
+    }
+
+    /// Per-section accent — keeps the sidebar visually scannable.
+    var accentColor: Color {
+        switch section {
+        case .scan:         return .accentColor
+        case .cleanup:      return .orange
+        case .protection:   return .red
+        case .performance:  return .teal
+        case .applications: return .indigo
+        case .files:        return .purple
+        case .tools:        return .pink
+        }
+    }
+
+    /// Keyboard shortcut for ⌘1..⌘9 navigation (top-level sidebar items).
+    var keyboardShortcut: KeyEquivalent? {
+        switch self {
+        case .smartCare:      return "1"
+        case .dashboard:      return "2"
+        case .systemJunk:     return "3"
+        case .malware:        return "4"
+        case .maintenance:    return "5"
+        case .uninstaller:    return "6"
+        case .spaceLens:      return "7"
+        case .myTools:        return "8"
+        default:              return nil
         }
     }
 }

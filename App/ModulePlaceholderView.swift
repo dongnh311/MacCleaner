@@ -5,27 +5,30 @@ struct ModulePlaceholderView: View {
 
     var body: some View {
         if let item = selection {
-            VStack(spacing: 16) {
-                Image(systemName: item.symbol)
-                    .font(.system(size: 48, weight: .regular))
-                    .symbolRenderingMode(.hierarchical)
-                    .foregroundStyle(.tint)
-                Text(item.title)
-                    .font(.system(size: 22, weight: .semibold))
-                Text("Module not implemented yet.")
-                    .foregroundStyle(.secondary)
+            VStack(spacing: 0) {
+                ModuleHeader(
+                    icon: item.symbol,
+                    title: item.title,
+                    subtitle: "This module is not wired to a view yet",
+                    accent: item.accentColor
+                )
+                EmptyStateView(
+                    icon: item.symbol,
+                    title: "\(item.title) is on the way",
+                    message: "This module surface is reserved. The underlying scanner may already exist; the view just isn't routed.",
+                    tint: item.accentColor
+                ) {
+                    EmptyView()
+                }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
-            VStack(spacing: 12) {
-                Image(systemName: "sidebar.left")
-                    .font(.system(size: 40))
-                    .foregroundStyle(.secondary)
-                Text("Select a module")
-                    .font(.title3)
-                    .foregroundStyle(.secondary)
+            EmptyStateView(
+                icon: "sidebar.left",
+                title: "Select a module",
+                message: "Pick anything from the sidebar to begin."
+            ) {
+                EmptyView()
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 }

@@ -123,6 +123,18 @@ enum SmokeTest {
             return "\(items.count) browser items"
         }
 
+        await report("MailAttachmentsScanner.scan") {
+            let items = try await container.mailAttachmentsScanner.scan()
+            let total = items.reduce(Int64(0)) { $0 + $1.size }
+            return "\(items.count) attachment dirs, \(total.formattedBytes)"
+        }
+
+        await report("PhotoJunkScanner.scan") {
+            let items = try await container.photoJunkScanner.scan()
+            let total = items.reduce(Int64(0)) { $0 + $1.size }
+            return "\(items.count) photo cache dirs, \(total.formattedBytes)"
+        }
+
         await report("PermissionsReader.readEntries") {
             do {
                 let rows = try await container.permissionsReader.readEntries()

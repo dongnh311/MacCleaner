@@ -29,6 +29,8 @@ final class AppContainer: ObservableObject {
     let smartCareOrchestrator: SmartCareOrchestrator
     let systemMetrics: SystemMetrics
     let myToolsStore: MyToolsStore
+    let mailAttachmentsScanner: MailAttachmentsScanner
+    let photoJunkScanner: PhotoJunkScanner
 
     init() {
         let database: AppDatabase
@@ -53,6 +55,8 @@ final class AppContainer: ObservableObject {
         self.quarantine = quarantine
         self.systemJunkScanner = SystemJunkScanner(ruleEngine: ruleEngine, quarantine: quarantine)
         self.trashBinScanner = TrashBinScanner(quarantine: quarantine)
+        self.mailAttachmentsScanner = MailAttachmentsScanner(quarantine: quarantine)
+        self.photoJunkScanner = PhotoJunkScanner(quarantine: quarantine)
         self.hierarchicalScanner = HierarchicalScanner()
         self.largeFilesScanner = LargeFilesScanner()
         self.duplicateDetector = DuplicateDetector()

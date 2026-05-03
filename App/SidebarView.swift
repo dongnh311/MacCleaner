@@ -10,7 +10,7 @@ struct SidebarView: View {
             ForEach(SidebarSection.allCases, id: \.self) { section in
                 Section {
                     ForEach(items(in: section)) { item in
-                        SidebarRow(item: item)
+                        SidebarRow(item: item, selection: selection)
                             .tag(item as SidebarItem?)
                     }
                 } header: {
@@ -58,15 +58,32 @@ struct SidebarView: View {
 
 private struct SidebarRow: View {
     let item: SidebarItem
+    let selection: SidebarItem?
+
+    private var isSelected: Bool { selection == item }
 
     var body: some View {
-        Label {
-            Text(item.title).font(.system(size: 13))
-        } icon: {
+        HStack(spacing: 8) {
+            Rectangle()
+                .fill(item.accentColor)
+                .frame(width: 3)
+                .opacity(isSelected ? 1 : 0)
             Image(systemName: item.symbol)
                 .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(isSelected ? item.accentColor : Color.secondary)
                 .frame(width: 18)
+            Text(item.title)
+                .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
+            Spacer()
+            if let key = item.keyboardShortcut {
+                Text("⌘\(String(key.character))")
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundStyle(.tertiary)
+                    .opacity(isSelected ? 0.8 : 0.4)
+            }
         }
+        .padding(.vertical, 1)
+        .contentShape(Rectangle())
     }
 }
 
@@ -94,7 +111,7 @@ private struct DiskFreeText: View {
     private func refresh() {
         let sample = container.systemMetrics.sampleDisk()
         if sample.totalBytes > 0 {
-            label = "\(sample.freeBytes.formattedBytes) free of \(sample.totalBytes.formattedBytes)"
+            label = "\(sample.freeBytes.formattedBytes) free"
         }
     }
 }
