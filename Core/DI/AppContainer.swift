@@ -26,6 +26,9 @@ final class AppContainer: ObservableObject {
     let malwareScanner: MalwareScanner
     let privacyCleaner: PrivacyCleaner
     let permissionsReader: PermissionsReader
+    let smartCareOrchestrator: SmartCareOrchestrator
+    let systemMetrics: SystemMetrics
+    let myToolsStore: MyToolsStore
 
     init() {
         let database: AppDatabase
@@ -65,6 +68,25 @@ final class AppContainer: ObservableObject {
         self.malwareScanner = MalwareScanner(quarantine: quarantine)
         self.privacyCleaner = PrivacyCleaner(quarantine: quarantine)
         self.permissionsReader = PermissionsReader()
+        self.systemMetrics = SystemMetrics()
+        self.myToolsStore = MyToolsStore()
+
+        let systemJunkRef = systemJunkScanner
+        let trashRef = trashBinScanner
+        let malwareRef = malwareScanner
+        let homebrewRef = homebrewUpdater
+        let appRef = appScanner
+        let sparkleRef = sparkleUpdater
+        let loginRef = loginItems
+        self.smartCareOrchestrator = SmartCareOrchestrator(
+            systemJunk: systemJunkRef,
+            trash: trashRef,
+            malware: malwareRef,
+            homebrew: homebrewRef,
+            appScanner: appRef,
+            sparkle: sparkleRef,
+            loginItems: loginRef
+        )
 
         Log.app.info("AppContainer initialised")
 

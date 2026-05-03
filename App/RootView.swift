@@ -29,7 +29,9 @@ struct RootView: View {
     private var moduleContent: some View {
         switch selection {
         case .smartCare:
-            SmartCareView()
+            SmartCareView(onNavigate: { selection = $0 })
+        case .dashboard:
+            DashboardView()
         case .systemJunk:
             CleanupModuleView(
                 scanner: container.systemJunkScanner,
@@ -77,6 +79,8 @@ struct RootView: View {
             )
         case .appPermissions:
             AppPermissionsView()
+        case .myTools:
+            MyToolsView(onNavigate: { selection = $0 })
         default:
             ModulePlaceholderView(selection: selection)
         }

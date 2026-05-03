@@ -1,41 +1,40 @@
 import SwiftUI
-import AppKit
 
+@MainActor
 struct SmartCareView: View {
 
     @EnvironmentObject private var container: AppContainer
 
-    @State private var selectedFolder: URL?
-    @State private var isScanning = false
-    @State private var totalBytes: Int64 = 0
-    @State private var elapsed: TimeInterval = 0
+    let onNavigate: (SidebarItem) -> Void
+
+    @State private var report: SmartCareReport?
+    @State private var phase: Phase = .idle
     @State private var lastError: String?
-    @State private var scanTask: Task<Void, Never>?
-    @State private var recentScans: [ScanHistoryRow] = []
+    @State private var cleaningSafe = false
+    @State private var cleanedMessage: String?
+
+    enum Phase: Equatable { case idle, scanning, ready }
 
     var body: some View {
         VStack(spacing: 0) {
             header
             Divider()
             ScrollView {
-                VStack(spacing: 24) {
-                    heroSection
-                        .padding(.top, 32)
-                    actionRow
-                    if let lastError {
-                        errorBanner(lastError)
-                    }
-                    if !recentScans.isEmpty {
-                        recentScansSection
+                VStack(spacing: 20) {
+                    hero
+                    if phase == .ready, let report {
+                        resultsList(report: report)
+                        bottomActions(report: report)
+                    } else if phase == .idle {
+                        startCard
                     }
                 }
-                .padding(24)
+                .padding(20)
             }
         }
-        .task { await loadRecent() }
     }
 
-    // MARK: - Header
+    // MARK: - Sections
 
     private var header: some View {
         HStack(spacing: 12) {
@@ -44,208 +43,186 @@ struct SmartCareView: View {
                 .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(.tint)
             VStack(alignment: .leading, spacing: 2) {
-                Text("Smart Care")
-                    .font(.title2.weight(.semibold))
-                Text("Pick any folder — MacCleaner will measure its real size")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
+                Text("Smart Care").font(.title2.weight(.semibold))
+                Text("Run all five core scans in parallel").font(.callout).foregroundStyle(.secondary)
             }
             Spacer()
-        }
-        .padding(.horizontal, 24)
-        .padding(.vertical, 16)
-    }
-
-    // MARK: - Hero
-
-    @ViewBuilder
-    private var heroSection: some View {
-        if let folder = selectedFolder {
-            VStack(spacing: 12) {
-                Text(folder.path)
-                    .font(.system(size: 12, design: .monospaced))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-                    .truncationMode(.middle)
-
-                if isScanning {
-                    ProgressView()
-                        .controlSize(.large)
-                        .padding(.vertical, 8)
-                    Text("Scanning…")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                } else {
-                    Text(totalBytes.formattedBytes)
-                        .font(.system(size: 40, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(totalBytes == 0 ? .secondary : .primary)
-                    if elapsed > 0 {
-                        Text("Done in \(String(format: "%.2f", elapsed))s")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
-            .frame(maxWidth: .infinity)
-        } else {
-            VStack(spacing: 12) {
-                Image(systemName: "folder.badge.questionmark")
-                    .font(.system(size: 56))
-                    .symbolRenderingMode(.hierarchical)
-                    .foregroundStyle(.secondary)
-                Text("Pick a folder to scan")
-                    .font(.title3)
-                    .foregroundStyle(.secondary)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 24)
-        }
-    }
-
-    private var actionRow: some View {
-        HStack(spacing: 12) {
-            Button {
-                pickFolder()
-            } label: {
-                Label("Pick Folder…", systemImage: "folder")
-            }
-            .controlSize(.large)
-            .disabled(isScanning)
-            .keyboardShortcut("o")
-
-            if isScanning {
-                Button("Cancel", role: .destructive, action: cancelScan)
-                    .controlSize(.large)
-            } else if selectedFolder != nil {
+            if phase == .ready {
                 Button {
-                    scan()
+                    runScan()
                 } label: {
                     Label("Rescan", systemImage: "arrow.clockwise")
                 }
-                .controlSize(.large)
                 .keyboardShortcut("r")
             }
+        }
+        .padding(.horizontal, 16).padding(.vertical, 12)
+    }
 
-            Spacer()
+    private var hero: some View {
+        VStack(spacing: 12) {
+            switch phase {
+            case .idle:
+                Image(systemName: "sparkles")
+                    .font(.system(size: 64))
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(.tint)
+                Text("Ready when you are")
+                    .font(.title.weight(.semibold))
+                Text("Smart Care inspects junk, trash, malware persistence, updates, and login items at once.")
+                    .font(.callout).foregroundStyle(.secondary).multilineTextAlignment(.center)
+            case .scanning:
+                ProgressView().controlSize(.large)
+                Text("Running all scans…").font(.title3).foregroundStyle(.secondary)
+            case .ready:
+                if let report {
+                    if report.hasDanger {
+                        Image(systemName: "exclamationmark.shield.fill").font(.system(size: 56)).foregroundStyle(.red)
+                        Text("Issues need review").font(.title.weight(.semibold))
+                    } else if report.totalCleanableBytes > 0 {
+                        Image(systemName: "leaf").font(.system(size: 56)).foregroundStyle(.green)
+                        Text("\(report.totalCleanableBytes.formattedBytes) cleanable")
+                            .font(.system(size: 32, weight: .semibold, design: .monospaced))
+                    } else {
+                        Image(systemName: "checkmark.seal.fill").font(.system(size: 56)).foregroundStyle(.green)
+                        Text("Your Mac is clean").font(.title.weight(.semibold))
+                    }
+                    Text(report.scannedAt.formatted(date: .abbreviated, time: .standard))
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            if let cleanedMessage {
+                Text(cleanedMessage).font(.callout).foregroundStyle(.green).padding(.top, 4)
+            }
+            if let lastError {
+                Text(lastError).font(.caption).foregroundStyle(.red).padding(.top, 4)
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var startCard: some View {
+        VStack(spacing: 12) {
+            Button {
+                runScan()
+            } label: {
+                Label("Start Scan", systemImage: "magnifyingglass")
+                    .frame(maxWidth: 200)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .keyboardShortcut(.defaultAction)
         }
     }
 
-    private func errorBanner(_ message: String) -> some View {
-        HStack(spacing: 8) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundStyle(.orange)
-            Text(message)
-                .font(.callout)
+    private func resultsList(report: SmartCareReport) -> some View {
+        VStack(spacing: 8) {
+            ForEach(report.entries) { entry in
+                resultRow(entry)
+            }
+        }
+    }
+
+    private func resultRow(_ entry: SmartCareReport.Entry) -> some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Circle().fill(severityColor(entry.severity).opacity(0.15)).frame(width: 36, height: 36)
+                Image(systemName: entry.symbol).foregroundStyle(severityColor(entry.severity))
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text(entry.title).font(.system(size: 14, weight: .medium))
+                    severityBadge(entry.severity)
+                }
+                Text(entry.summary).font(.caption).foregroundStyle(.secondary)
+            }
             Spacer()
+            if let bytes = entry.totalBytes, bytes > 0 {
+                Text(bytes.formattedBytes).font(.system(.body, design: .monospaced)).foregroundStyle(.secondary)
+            } else if entry.count > 0 {
+                Text("\(entry.count)").font(.system(.body, design: .monospaced)).foregroundStyle(.secondary)
+            }
+            Button("Review") { onNavigate(entry.module) }
+                .controlSize(.small)
         }
         .padding(12)
-        .background(Color.orange.opacity(0.12))
+        .background(Color(NSColor.controlBackgroundColor))
         .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 
-    private var recentScansSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("RECENT SCANS")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.secondary)
-            VStack(spacing: 0) {
-                ForEach(recentScans, id: \.id) { row in
-                    HStack {
-                        Image(systemName: "clock")
-                            .foregroundStyle(.secondary)
-                            .frame(width: 20)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(row.sourcePath ?? "—")
-                                .font(.system(size: 12, design: .monospaced))
-                                .lineLimit(1)
-                                .truncationMode(.middle)
-                            Text(row.startedAt.formatted(date: .abbreviated, time: .shortened))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Text(row.bytesTotal.formattedBytes)
-                            .font(.system(.body, design: .monospaced))
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding(.vertical, 8)
-                    .padding(.horizontal, 12)
-                    if row.id != recentScans.last?.id {
-                        Divider()
-                    }
-                }
+    private func bottomActions(report: SmartCareReport) -> some View {
+        HStack {
+            Button {
+                cleanSafe()
+            } label: {
+                if cleaningSafe { ProgressView().controlSize(.small) }
+                Text("Clean All Safe Items")
             }
-            .background(Color(NSColor.controlBackgroundColor))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .disabled(cleaningSafe)
+
+            Button("Review Each") { onNavigate(.systemJunk) }
+                .controlSize(.large)
+
+            Spacer()
+            Text("Safe items are deleted directly. Review items move to a 7-day quarantine.")
+                .font(.caption2).foregroundStyle(.secondary)
+        }
+        .padding(.top, 8)
+    }
+
+    private func severityBadge(_ s: SmartCareReport.Entry.Severity) -> some View {
+        Text(s == .ok ? "OK" : (s == .review ? "REVIEW" : "DANGER"))
+            .font(.system(size: 9, weight: .bold))
+            .padding(.horizontal, 5).padding(.vertical, 1)
+            .background(severityColor(s).opacity(0.18))
+            .foregroundStyle(severityColor(s))
+            .clipShape(Capsule())
+    }
+
+    private func severityColor(_ s: SmartCareReport.Entry.Severity) -> Color {
+        switch s {
+        case .ok:     return .green
+        case .review: return .orange
+        case .danger: return .red
         }
     }
 
     // MARK: - Actions
 
-    private func pickFolder() {
-        let panel = NSOpenPanel()
-        panel.canChooseDirectories = true
-        panel.canChooseFiles = false
-        panel.allowsMultipleSelection = false
-        panel.directoryURL = FileManager.default.homeDirectoryForCurrentUser
-        panel.message = "Choose a folder to measure"
-        if panel.runModal() == .OK, let url = panel.url {
-            selectedFolder = url
-            scan()
+    private func runScan() {
+        Task { @MainActor in
+            phase = .scanning
+            cleanedMessage = nil
+            lastError = nil
+            report = await container.smartCareOrchestrator.run()
+            phase = .ready
         }
     }
 
-    private func scan() {
-        guard let folder = selectedFolder else { return }
-        cancelScan()
-        isScanning = true
-        totalBytes = 0
-        elapsed = 0
-        lastError = nil
-        let startedAt = Date()
-        let calculator = container.sizeCalculator
-        let database = container.db
-
-        scanTask = Task { @MainActor in
-            Log.scanner.info("scan started: \(folder.path, privacy: .public)")
-            let total = await calculator.recursiveSize(at: folder)
-            let finishedAt = Date()
-            guard !Task.isCancelled else {
-                self.isScanning = false
-                return
+    private func cleanSafe() {
+        cleaningSafe = true
+        cleanedMessage = nil
+        Task { @MainActor in
+            let result = await container.smartCareOrchestrator.cleanAllSafeItems()
+            cleaningSafe = false
+            if result.removed.isEmpty {
+                cleanedMessage = "Nothing safe to clean"
+            } else {
+                cleanedMessage = "Freed \(result.totalBytesFreed.formattedBytes) (\(result.removed.count) items)"
             }
-            self.totalBytes = total
-            self.elapsed = finishedAt.timeIntervalSince(startedAt)
-            self.isScanning = false
-            Log.scanner.info("scan finished: \(total) bytes in \(self.elapsed, format: .fixed(precision: 2))s")
-
-            do {
-                try await database.recordScan(
-                    module: "SmartCare.demo",
-                    startedAt: startedAt,
-                    finishedAt: finishedAt,
-                    bytesTotal: total,
-                    sourcePath: folder.path
-                )
-                await loadRecent()
-            } catch {
-                Log.db.error("recordScan failed: \(error.localizedDescription, privacy: .public)")
-                self.lastError = "Saved scan to history failed: \(error.localizedDescription)"
-            }
-        }
-    }
-
-    private func cancelScan() {
-        scanTask?.cancel()
-        scanTask = nil
-        if isScanning { isScanning = false }
-    }
-
-    private func loadRecent() async {
-        do {
-            recentScans = try await container.db.recentScans(module: "SmartCare.demo", limit: 5)
-        } catch {
-            Log.db.error("loadRecent failed: \(error.localizedDescription, privacy: .public)")
+            try? await container.db.recordScan(
+                module: "SmartCare.cleanSafe",
+                startedAt: Date().addingTimeInterval(-1),
+                finishedAt: Date(),
+                itemsScanned: result.removed.count,
+                bytesTotal: result.totalBytesFreed,
+                sourcePath: nil,
+                status: result.failed.isEmpty ? "completed" : "partial"
+            )
+            // Refresh report
+            report = await container.smartCareOrchestrator.run()
         }
     }
 }
