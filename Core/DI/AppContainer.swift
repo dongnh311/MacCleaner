@@ -23,6 +23,9 @@ final class AppContainer: ObservableObject {
     let loginItems: LoginItemsService
     let memoryService: MemoryService
     let batteryService: BatteryService
+    let malwareScanner: MalwareScanner
+    let privacyCleaner: PrivacyCleaner
+    let permissionsReader: PermissionsReader
 
     init() {
         let database: AppDatabase
@@ -59,6 +62,9 @@ final class AppContainer: ObservableObject {
         self.loginItems = LoginItemsService()
         self.memoryService = MemoryService()
         self.batteryService = BatteryService()
+        self.malwareScanner = MalwareScanner(quarantine: quarantine)
+        self.privacyCleaner = PrivacyCleaner(quarantine: quarantine)
+        self.permissionsReader = PermissionsReader()
 
         Log.app.info("AppContainer initialised")
 

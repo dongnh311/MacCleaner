@@ -66,6 +66,17 @@ struct RootView: View {
             MemoryReleaseView()
         case .battery:
             BatteryMonitorView()
+        case .malware:
+            MalwareView()
+        case .privacy:
+            CleanupModuleView(
+                scanner: container.privacyCleaner,
+                title: "Privacy",
+                subtitle: "Browser data, recents, chat caches",
+                symbol: "eye.slash"
+            )
+        case .appPermissions:
+            AppPermissionsView()
         default:
             ModulePlaceholderView(selection: selection)
         }
