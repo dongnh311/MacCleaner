@@ -60,6 +60,18 @@ struct CleanupModuleView<S: CleanupScanner>: View {
             content
         }
         .animation(.smooth(duration: 0.2), value: phase)
+        .task { restoreFromCacheIfAvailable() }
+    }
+
+    private func restoreFromCacheIfAvailable() {
+        // Already have results in this view's state — keep them.
+        guard items.isEmpty, phase == .idle else { return }
+        guard let cached = container.cleanupResultsCache.get(scannerID: scanner.id) else { return }
+        items = cached.items
+        scanStartedAt = cached.scannedAt
+        phase = .scanned
+        let elapsed = Int(Date().timeIntervalSince(cached.scannedAt))
+        lastResultMessage = "Restored \(cached.items.count) items from previous scan (\(elapsed)s ago)"
     }
 
     @ViewBuilder
@@ -326,6 +338,7 @@ struct CleanupModuleView<S: CleanupScanner>: View {
                 let result = try await scanner.scan()
                 items = result
                 phase = .scanned
+                container.cleanupResultsCache.set(scannerID: scanner.id, items: result)
                 Log.scanner.info("\(scanner.id, privacy: .public) scan: \(result.count) items, \(totalScannedSize) bytes")
             } catch {
                 lastError = error.localizedDescription
@@ -354,6 +367,7 @@ struct CleanupModuleView<S: CleanupScanner>: View {
             items.removeAll { removedIDs.contains($0.id) }
             selectedIDs.removeAll()
             phase = .scanned
+            container.cleanupResultsCache.update(scannerID: scanner.id, items: items)
             lastResultMessage = "Freed \(result.totalBytesFreed.formattedBytes) (\(result.removed.count) item\(result.removed.count == 1 ? "" : "s"))"
             if !result.failed.isEmpty {
                 lastError = "\(result.failed.count) item\(result.failed.count == 1 ? "" : "s") failed to clean"

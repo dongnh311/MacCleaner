@@ -31,6 +31,7 @@ final class AppContainer: ObservableObject {
     let myToolsStore: MyToolsStore
     let mailAttachmentsScanner: MailAttachmentsScanner
     let photoJunkScanner: PhotoJunkScanner
+    let cleanupResultsCache = CleanupResultsCache()
 
     init() {
         let database: AppDatabase
