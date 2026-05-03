@@ -52,6 +52,10 @@ struct RootView: View {
             DuplicateFinderView()
         case .similarPhotos:
             SimilarPhotosView()
+        case .uninstaller:
+            UninstallerView()
+        case .updater:
+            UpdaterView()
         default:
             ModulePlaceholderView(selection: selection)
         }

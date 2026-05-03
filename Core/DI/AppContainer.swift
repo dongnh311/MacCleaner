@@ -15,6 +15,10 @@ final class AppContainer: ObservableObject {
     let largeFilesScanner: LargeFilesScanner
     let duplicateDetector: DuplicateDetector
     let imageSimilarity: ImageSimilarity
+    let appScanner: AppScanner
+    let leftoverDetector: LeftoverDetector
+    let homebrewUpdater: HomebrewUpdater
+    let sparkleUpdater: SparkleUpdater
 
     init() {
         let database: AppDatabase
@@ -43,6 +47,10 @@ final class AppContainer: ObservableObject {
         self.largeFilesScanner = LargeFilesScanner()
         self.duplicateDetector = DuplicateDetector()
         self.imageSimilarity = ImageSimilarity()
+        self.appScanner = AppScanner()
+        self.leftoverDetector = LeftoverDetector()
+        self.homebrewUpdater = HomebrewUpdater()
+        self.sparkleUpdater = SparkleUpdater()
 
         Log.app.info("AppContainer initialised")
 
