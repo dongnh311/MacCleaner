@@ -11,6 +11,10 @@ final class AppContainer: ObservableObject {
     let quarantine: QuarantineService
     let systemJunkScanner: SystemJunkScanner
     let trashBinScanner: TrashBinScanner
+    let hierarchicalScanner: HierarchicalScanner
+    let largeFilesScanner: LargeFilesScanner
+    let duplicateDetector: DuplicateDetector
+    let imageSimilarity: ImageSimilarity
 
     init() {
         let database: AppDatabase
@@ -35,6 +39,10 @@ final class AppContainer: ObservableObject {
         self.quarantine = quarantine
         self.systemJunkScanner = SystemJunkScanner(ruleEngine: ruleEngine, quarantine: quarantine)
         self.trashBinScanner = TrashBinScanner(quarantine: quarantine)
+        self.hierarchicalScanner = HierarchicalScanner()
+        self.largeFilesScanner = LargeFilesScanner()
+        self.duplicateDetector = DuplicateDetector()
+        self.imageSimilarity = ImageSimilarity()
 
         Log.app.info("AppContainer initialised")
 

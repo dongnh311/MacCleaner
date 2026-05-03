@@ -44,6 +44,14 @@ struct RootView: View {
                 subtitle: "Items in user and external-volume trash",
                 symbol: "trash"
             )
+        case .spaceLens:
+            SpaceLensView()
+        case .largeOldFiles:
+            LargeOldFilesView()
+        case .duplicates:
+            DuplicateFinderView()
+        case .similarPhotos:
+            SimilarPhotosView()
         default:
             ModulePlaceholderView(selection: selection)
         }
