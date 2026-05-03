@@ -19,6 +19,11 @@ settings:
     DEAD_CODE_STRIPPING: YES
     ENABLE_USER_SCRIPT_SANDBOXING: YES
 
+packages:
+  GRDB:
+    url: https://github.com/groue/GRDB.swift
+    from: "7.0.0"
+
 targets:
   MacCleaner:
     type: application
@@ -30,6 +35,8 @@ targets:
       - path: Resources
         buildPhase: resources
         type: folder
+    dependencies:
+      - package: GRDB
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.dong.MacCleaner
