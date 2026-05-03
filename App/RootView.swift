@@ -13,8 +13,6 @@ struct RootView: View {
                 .navigationSplitViewColumnWidth(min: 200, ideal: 220, max: 280)
         } content: {
             moduleContent
-                .id(selection)   // forces view rebuild on switch — guarantees panel updates
-                .transition(.opacity)
                 .background(moduleBackdrop)
                 .navigationSplitViewColumnWidth(min: 480, ideal: 640)
         } detail: {
@@ -22,12 +20,14 @@ struct RootView: View {
                 .navigationSplitViewColumnWidth(min: 280, ideal: 320, max: 400)
         }
         .navigationSplitViewStyle(.balanced)
-        .animation(.smooth(duration: 0.2), value: selection)
         .sheet(isPresented: $showOnboarding) {
             PermissionsWizardSheet()
                 .environmentObject(container)
         }
         .background(navigationShortcuts)
+        .onChange(of: selection) { newValue in
+            Log.ui.notice("sidebar selection -> \(newValue?.rawValue ?? "nil", privacy: .public)")
+        }
     }
 
     /// Subtle gradient drawn behind every module — picks up the section accent so the
