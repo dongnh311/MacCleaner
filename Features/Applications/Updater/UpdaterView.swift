@@ -24,16 +24,11 @@ struct UpdaterView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "arrow.triangle.2.circlepath")
-                .font(.system(size: 28))
-                .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(.tint)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Updater").font(.title2.weight(.semibold))
-                Text("Homebrew casks + Sparkle apps").font(.callout).foregroundStyle(.secondary)
-            }
-            Spacer()
+        ModuleHeader(
+            icon: "arrow.triangle.2.circlepath",
+            title: "Updater",
+            subtitle: "Homebrew casks + Sparkle apps"
+        ) {
             Button {
                 check()
             } label: {
@@ -41,8 +36,6 @@ struct UpdaterView: View {
             }
             .disabled(phase == .checking)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
     }
 
     @ViewBuilder

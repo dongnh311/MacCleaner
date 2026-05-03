@@ -30,19 +30,11 @@ struct SimilarPhotosView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "photo.on.rectangle.angled")
-                .font(.system(size: 28))
-                .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(.tint)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Similar Photos").font(.title2.weight(.semibold))
-                Text("Vision feature-print clustering").font(.callout).foregroundStyle(.secondary)
-            }
-            Spacer()
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        ModuleHeader(
+            icon: "photo.on.rectangle.angled",
+            title: "Similar Photos",
+            subtitle: "Vision feature-print clustering"
+        )
     }
 
     private var controls: some View {

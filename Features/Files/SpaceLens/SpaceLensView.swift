@@ -32,16 +32,11 @@ struct SpaceLensView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "chart.pie")
-                .font(.system(size: 28))
-                .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(.tint)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Space Lens").font(.title2.weight(.semibold))
-                Text("Treemap of disk usage").font(.callout).foregroundStyle(.secondary)
-            }
-            Spacer()
+        ModuleHeader(
+            icon: "chart.pie",
+            title: "Space Lens",
+            subtitle: "Treemap of disk usage — click to drill in"
+        ) {
             Menu {
                 ForEach(volumes(), id: \.self) { vol in
                     Button(volumeLabel(vol)) { startScan(at: vol) }
@@ -53,8 +48,6 @@ struct SpaceLensView: View {
             }
             .frame(maxWidth: 220)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
     }
 
     private var breadcrumbs: some View {

@@ -30,20 +30,11 @@ struct MaintenanceView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "wrench.and.screwdriver")
-                .font(.system(size: 28))
-                .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(.tint)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Maintenance").font(.title2.weight(.semibold))
-                Text("System scripts that need a Terminal — admin items must be run with sudo")
-                    .font(.callout).foregroundStyle(.secondary)
-            }
-            Spacer()
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        ModuleHeader(
+            icon: "wrench.and.screwdriver",
+            title: "Maintenance",
+            subtitle: "System scripts — admin items must be run with sudo"
+        )
     }
 
     private func section(category: MaintenanceCommand.Category, items: [MaintenanceCommand]) -> some View {

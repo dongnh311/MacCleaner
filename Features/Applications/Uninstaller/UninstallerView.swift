@@ -71,16 +71,11 @@ struct UninstallerView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "xmark.bin")
-                .font(.system(size: 28))
-                .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(.tint)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Uninstaller").font(.title2.weight(.semibold))
-                Text("Remove apps with all leftovers").font(.callout).foregroundStyle(.secondary)
-            }
-            Spacer()
+        ModuleHeader(
+            icon: "xmark.bin",
+            title: "Uninstaller",
+            subtitle: "Remove apps with all leftovers"
+        ) {
             Button {
                 scan()
             } label: {
@@ -88,8 +83,6 @@ struct UninstallerView: View {
             }
             .disabled(phase == .scanning)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
     }
 
     private var toolbar: some View {

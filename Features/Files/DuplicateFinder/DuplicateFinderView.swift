@@ -29,19 +29,11 @@ struct DuplicateFinderView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "doc.on.doc")
-                .font(.system(size: 28))
-                .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(.tint)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Duplicate Finder").font(.title2.weight(.semibold))
-                Text("Same content detected via SHA-256 byte-for-byte match").font(.callout).foregroundStyle(.secondary)
-            }
-            Spacer()
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        ModuleHeader(
+            icon: "doc.on.doc",
+            title: "Duplicate Finder",
+            subtitle: "Byte-for-byte SHA-256 matching"
+        )
     }
 
     private var controls: some View {

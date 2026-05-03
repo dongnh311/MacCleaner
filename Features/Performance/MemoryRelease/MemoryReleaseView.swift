@@ -31,19 +31,11 @@ struct MemoryReleaseView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "memorychip")
-                .font(.system(size: 28))
-                .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(.tint)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Memory").font(.title2.weight(.semibold))
-                Text("Live RAM breakdown via host_statistics64")
-                    .font(.callout).foregroundStyle(.secondary)
-            }
-            Spacer()
-        }
-        .padding(.horizontal, 16).padding(.vertical, 12)
+        ModuleHeader(
+            icon: "memorychip",
+            title: "Memory",
+            subtitle: "Live RAM breakdown via host_statistics64"
+        )
     }
 
     private func gauge(stats: MemoryStats) -> some View {

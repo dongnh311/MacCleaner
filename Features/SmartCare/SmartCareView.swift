@@ -17,11 +17,24 @@ struct SmartCareView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            header
-            Divider()
+            ModuleHeader(
+                icon: "sparkles",
+                title: "Smart Care",
+                subtitle: "Run all five core scans at once"
+            ) {
+                if phase == .ready {
+                    Button {
+                        runScan()
+                    } label: {
+                        Label("Rescan", systemImage: "arrow.clockwise")
+                    }
+                    .keyboardShortcut("r")
+                }
+            }
             ScrollView {
-                VStack(spacing: 20) {
+                VStack(spacing: Spacing.xl) {
                     hero
+                        .padding(.top, Spacing.xl)
                     if phase == .ready, let report {
                         resultsList(report: report)
                         bottomActions(report: report)
@@ -29,85 +42,105 @@ struct SmartCareView: View {
                         startCard
                     }
                 }
-                .padding(20)
+                .padding(.horizontal, Spacing.xl)
+                .padding(.bottom, Spacing.xl)
             }
+        }
+        .animation(.smooth(duration: 0.25), value: phase)
+        .animation(.smooth(duration: 0.25), value: cleaningSafe)
+    }
+
+    // MARK: - Hero
+
+    @ViewBuilder
+    private var hero: some View {
+        switch phase {
+        case .idle:
+            idleHero
+        case .scanning:
+            scanningHero
+        case .ready:
+            if let report { readyHero(report: report) }
         }
     }
 
-    // MARK: - Sections
-
-    private var header: some View {
-        HStack(spacing: 12) {
+    private var idleHero: some View {
+        VStack(spacing: Spacing.md) {
             Image(systemName: "sparkles")
-                .font(.system(size: 28))
+                .font(.system(size: 56))
                 .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(.tint)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Smart Care").font(.title2.weight(.semibold))
-                Text("Run all five core scans in parallel").font(.callout).foregroundStyle(.secondary)
-            }
-            Spacer()
-            if phase == .ready {
-                Button {
-                    runScan()
-                } label: {
-                    Label("Rescan", systemImage: "arrow.clockwise")
-                }
-                .keyboardShortcut("r")
-            }
+                .heroIconBackdrop(color: .accentColor)
+            Text("Ready when you are")
+                .font(.system(size: 22, weight: .semibold))
+            Text("Smart Care inspects junk, trash, malware persistence, updates, and login items in parallel.")
+                .font(.callout).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                .frame(maxWidth: 420)
         }
-        .padding(.horizontal, 16).padding(.vertical, 12)
     }
 
-    private var hero: some View {
-        VStack(spacing: 12) {
-            switch phase {
-            case .idle:
-                Image(systemName: "sparkles")
+    private var scanningHero: some View {
+        VStack(spacing: Spacing.md) {
+            ProgressView().controlSize(.large)
+            Text("Running all scans…")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func readyHero(report: SmartCareReport) -> some View {
+        VStack(spacing: Spacing.sm) {
+            if report.hasDanger {
+                Image(systemName: "exclamationmark.shield.fill")
                     .font(.system(size: 64))
-                    .symbolRenderingMode(.hierarchical)
-                    .foregroundStyle(.tint)
-                Text("Ready when you are")
-                    .font(.title.weight(.semibold))
-                Text("Smart Care inspects junk, trash, malware persistence, updates, and login items at once.")
-                    .font(.callout).foregroundStyle(.secondary).multilineTextAlignment(.center)
-            case .scanning:
-                ProgressView().controlSize(.large)
-                Text("Running all scans…").font(.title3).foregroundStyle(.secondary)
-            case .ready:
-                if let report {
-                    if report.hasDanger {
-                        Image(systemName: "exclamationmark.shield.fill").font(.system(size: 56)).foregroundStyle(.red)
-                        Text("Issues need review").font(.title.weight(.semibold))
-                    } else if report.totalCleanableBytes > 0 {
-                        Image(systemName: "leaf").font(.system(size: 56)).foregroundStyle(.green)
-                        Text("\(report.totalCleanableBytes.formattedBytes) cleanable")
-                            .font(.system(size: 32, weight: .semibold, design: .monospaced))
-                    } else {
-                        Image(systemName: "checkmark.seal.fill").font(.system(size: 56)).foregroundStyle(.green)
-                        Text("Your Mac is clean").font(.title.weight(.semibold))
-                    }
-                    Text(report.scannedAt.formatted(date: .abbreviated, time: .standard))
-                        .font(.caption).foregroundStyle(.secondary)
-                }
+                    .foregroundStyle(.red)
+                    .heroIconBackdrop(color: .red)
+                Text("Issues need review")
+                    .font(.system(size: 24, weight: .semibold))
+            } else if report.totalCleanableBytes > 0 {
+                Image(systemName: "leaf.fill")
+                    .font(.system(size: 56))
+                    .foregroundStyle(.green)
+                    .heroIconBackdrop(color: .green)
+                Text(report.totalCleanableBytes.formattedBytes)
+                    .font(.system(size: 36, weight: .semibold, design: .monospaced))
+                    .contentTransition(.numericText())
+                Text("cleanable across all modules")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            } else {
+                Image(systemName: "checkmark.seal.fill")
+                    .font(.system(size: 64))
+                    .foregroundStyle(.green)
+                    .heroIconBackdrop(color: .green)
+                Text("Your Mac is clean")
+                    .font(.system(size: 24, weight: .semibold))
             }
+            Text("Last scan: \(report.scannedAt.formatted(date: .abbreviated, time: .standard))")
+                .font(.caption).foregroundStyle(.secondary)
             if let cleanedMessage {
-                Text(cleanedMessage).font(.callout).foregroundStyle(.green).padding(.top, 4)
+                Label(cleanedMessage, systemImage: "checkmark.circle.fill")
+                    .font(.callout)
+                    .foregroundStyle(.green)
+                    .padding(.top, 4)
             }
             if let lastError {
-                Text(lastError).font(.caption).foregroundStyle(.red).padding(.top, 4)
+                Label(lastError, systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .padding(.top, 4)
             }
         }
-        .frame(maxWidth: .infinity)
     }
 
     private var startCard: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: Spacing.lg) {
             Button {
                 runScan()
             } label: {
                 Label("Start Scan", systemImage: "magnifyingglass")
-                    .frame(maxWidth: 200)
+                    .frame(maxWidth: 220)
+                    .padding(.vertical, 4)
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
@@ -115,8 +148,10 @@ struct SmartCareView: View {
         }
     }
 
+    // MARK: - Results
+
     private func resultsList(report: SmartCareReport) -> some View {
-        VStack(spacing: 8) {
+        VStack(spacing: Spacing.sm) {
             ForEach(report.entries) { entry in
                 resultRow(entry)
             }
@@ -124,61 +159,83 @@ struct SmartCareView: View {
     }
 
     private func resultRow(_ entry: SmartCareReport.Entry) -> some View {
-        HStack(spacing: 12) {
+        HStack(spacing: Spacing.md) {
             ZStack {
-                Circle().fill(severityColor(entry.severity).opacity(0.15)).frame(width: 36, height: 36)
-                Image(systemName: entry.symbol).foregroundStyle(severityColor(entry.severity))
+                Circle().fill(severityColor(entry.severity).opacity(0.15)).frame(width: 40, height: 40)
+                Image(systemName: entry.symbol)
+                    .font(.system(size: 17))
+                    .foregroundStyle(severityColor(entry.severity))
             }
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
-                    Text(entry.title).font(.system(size: 14, weight: .medium))
-                    severityBadge(entry.severity)
+                    Text(entry.title).font(.system(size: 14, weight: .semibold))
+                    StatusBadge(text: severityLabel(entry.severity), color: severityColor(entry.severity))
                 }
                 Text(entry.summary).font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
             if let bytes = entry.totalBytes, bytes > 0 {
-                Text(bytes.formattedBytes).font(.system(.body, design: .monospaced)).foregroundStyle(.secondary)
+                Text(bytes.formattedBytes)
+                    .font(.system(.body, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .contentTransition(.numericText())
             } else if entry.count > 0 {
-                Text("\(entry.count)").font(.system(.body, design: .monospaced)).foregroundStyle(.secondary)
+                Text("\(entry.count)")
+                    .font(.system(.body, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .contentTransition(.numericText())
             }
-            Button("Review") { onNavigate(entry.module) }
-                .controlSize(.small)
+            Button {
+                onNavigate(entry.module)
+            } label: {
+                HStack(spacing: 3) {
+                    Text("Review")
+                    Image(systemName: "chevron.right").font(.system(size: 9, weight: .semibold))
+                }
+            }
+            .controlSize(.small)
         }
-        .padding(12)
-        .background(Color(NSColor.controlBackgroundColor))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .padding(Spacing.md)
+        .cardStyle()
     }
 
     private func bottomActions(report: SmartCareReport) -> some View {
-        HStack {
+        HStack(spacing: Spacing.md) {
             Button {
                 cleanSafe()
             } label: {
-                if cleaningSafe { ProgressView().controlSize(.small) }
-                Text("Clean All Safe Items")
+                HStack(spacing: 6) {
+                    if cleaningSafe { ProgressView().controlSize(.small) }
+                    Label("Clean All Safe Items", systemImage: "leaf")
+                }
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
             .disabled(cleaningSafe)
 
-            Button("Review Each") { onNavigate(.systemJunk) }
-                .controlSize(.large)
+            Button {
+                onNavigate(.systemJunk)
+            } label: {
+                Label("Review Each", systemImage: "list.bullet.rectangle")
+            }
+            .controlSize(.large)
 
             Spacer()
-            Text("Safe items are deleted directly. Review items move to a 7-day quarantine.")
+
+            Text("Safe items deleted directly. Review items move to a 7-day quarantine.")
                 .font(.caption2).foregroundStyle(.secondary)
+                .frame(maxWidth: 280, alignment: .trailing)
+                .multilineTextAlignment(.trailing)
         }
-        .padding(.top, 8)
+        .padding(.top, Spacing.sm)
     }
 
-    private func severityBadge(_ s: SmartCareReport.Entry.Severity) -> some View {
-        Text(s == .ok ? "OK" : (s == .review ? "REVIEW" : "DANGER"))
-            .font(.system(size: 9, weight: .bold))
-            .padding(.horizontal, 5).padding(.vertical, 1)
-            .background(severityColor(s).opacity(0.18))
-            .foregroundStyle(severityColor(s))
-            .clipShape(Capsule())
+    private func severityLabel(_ s: SmartCareReport.Entry.Severity) -> String {
+        switch s {
+        case .ok: return "OK"
+        case .review: return "REVIEW"
+        case .danger: return "DANGER"
+        }
     }
 
     private func severityColor(_ s: SmartCareReport.Entry.Severity) -> Color {
@@ -221,7 +278,6 @@ struct SmartCareView: View {
                 sourcePath: nil,
                 status: result.failed.isEmpty ? "completed" : "partial"
             )
-            // Refresh report
             report = await container.smartCareOrchestrator.run()
         }
     }

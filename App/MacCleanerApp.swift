@@ -10,6 +10,11 @@ struct MacCleanerApp: App {
             RootView()
                 .environmentObject(container)
                 .frame(minWidth: 1000, minHeight: 640)
+                .task {
+                    if SmokeTest.isEnabled {
+                        await SmokeTest.run(container: container)
+                    }
+                }
         }
         .windowStyle(.titleBar)
         .windowToolbarStyle(.unified(showsTitle: true))

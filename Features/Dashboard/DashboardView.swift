@@ -19,10 +19,13 @@ struct DashboardView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            header
-            Divider()
+            ModuleHeader(
+                icon: "square.grid.2x2",
+                title: "Dashboard",
+                subtitle: "Live system metrics — refreshes every second"
+            )
             ScrollView {
-                LazyVGrid(columns: columns, spacing: 12) {
+                LazyVGrid(columns: columns, spacing: Spacing.md) {
                     cpuCard
                     memoryCard
                     diskCard
@@ -31,30 +34,15 @@ struct DashboardView: View {
                     }
                     healthCard
                 }
-                .padding(16)
+                .padding(Spacing.lg)
 
                 topProcessesCard
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 16)
+                    .padding(.horizontal, Spacing.lg)
+                    .padding(.bottom, Spacing.lg)
             }
         }
         .onAppear { start() }
         .onDisappear { stop() }
-    }
-
-    private var header: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "square.grid.2x2")
-                .font(.system(size: 28))
-                .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(.tint)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Dashboard").font(.title2.weight(.semibold))
-                Text("Live system metrics").font(.callout).foregroundStyle(.secondary)
-            }
-            Spacer()
-        }
-        .padding(.horizontal, 16).padding(.vertical, 12)
     }
 
     // MARK: - Cards
@@ -223,16 +211,20 @@ private struct StatCard<Content: View>: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
             HStack(spacing: 6) {
-                Image(systemName: icon).foregroundStyle(.tint)
-                Text(title).font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
+                Image(systemName: icon)
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(.tint)
+                Text(title.uppercased())
+                    .font(.system(size: 11, weight: .semibold))
+                    .tracking(0.5)
+                    .foregroundStyle(.secondary)
             }
             content()
         }
-        .padding(12)
+        .padding(Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(NSColor.controlBackgroundColor))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .cardStyle()
     }
 }

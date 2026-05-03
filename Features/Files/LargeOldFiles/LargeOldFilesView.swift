@@ -40,19 +40,11 @@ struct LargeOldFilesView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "doc.text.magnifyingglass")
-                .font(.system(size: 28))
-                .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(.tint)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Large & Old Files").font(.title2.weight(.semibold))
-                Text("Files matching size and age thresholds").font(.callout).foregroundStyle(.secondary)
-            }
-            Spacer()
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        ModuleHeader(
+            icon: "doc.text.magnifyingglass",
+            title: "Large & Old Files",
+            subtitle: "Files matching size and age thresholds"
+        )
     }
 
     private var controls: some View {

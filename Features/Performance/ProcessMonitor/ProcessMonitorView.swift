@@ -40,22 +40,14 @@ struct ProcessMonitorView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "cpu")
-                .font(.system(size: 28))
-                .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(.tint)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Process Monitor").font(.title2.weight(.semibold))
-                Text("Live snapshot — refreshes every 2 seconds")
-                    .font(.callout).foregroundStyle(.secondary)
-            }
-            Spacer()
+        ModuleHeader(
+            icon: "cpu",
+            title: "Process Monitor",
+            subtitle: "Live snapshot — refreshes every 2 seconds"
+        ) {
             Text("\(processes.count) running")
                 .font(.caption).foregroundStyle(.secondary)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
     }
 
     private var toolbar: some View {

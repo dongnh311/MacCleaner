@@ -31,17 +31,11 @@ struct AppPermissionsView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "lock.shield")
-                .font(.system(size: 28))
-                .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(.tint)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("App Permissions").font(.title2.weight(.semibold))
-                Text("Read from TCC.db — view-only; click Open to manage in System Settings")
-                    .font(.callout).foregroundStyle(.secondary)
-            }
-            Spacer()
+        ModuleHeader(
+            icon: "lock.shield",
+            title: "App Permissions",
+            subtitle: "TCC.db viewer — manage in System Settings"
+        ) {
             Button {
                 Task { await load() }
             } label: {
@@ -49,7 +43,6 @@ struct AppPermissionsView: View {
             }
             .disabled(phase == .loading)
         }
-        .padding(.horizontal, 16).padding(.vertical, 12)
     }
 
     @ViewBuilder

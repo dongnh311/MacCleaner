@@ -43,13 +43,24 @@ struct CleanupModuleView<S: CleanupScanner>: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            header
-            Divider()
+            ModuleHeader(
+                icon: symbol,
+                title: title,
+                subtitle: subtitle
+            ) {
+                if phase == .scanned && !items.isEmpty {
+                    Button {
+                        scan()
+                    } label: {
+                        Label("Rescan", systemImage: "arrow.clockwise")
+                    }
+                    .keyboardShortcut("r")
+                }
+            }
             content
         }
+        .animation(.smooth(duration: 0.2), value: phase)
     }
-
-    // MARK: - Sections
 
     @ViewBuilder
     private var content: some View {
@@ -63,54 +74,23 @@ struct CleanupModuleView<S: CleanupScanner>: View {
         }
     }
 
-    private var header: some View {
-        HStack(spacing: 12) {
-            Image(systemName: symbol)
-                .font(.system(size: 28))
-                .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(.tint)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.title2.weight(.semibold))
-                Text(subtitle).font(.callout).foregroundStyle(.secondary)
-            }
-            Spacer()
-            if phase == .scanned && !items.isEmpty {
-                Button {
-                    scan()
-                } label: {
-                    Label("Rescan", systemImage: "arrow.clockwise")
-                }
-                .keyboardShortcut("r")
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-    }
-
     private var idleState: some View {
-        VStack(spacing: 16) {
-            Spacer()
-            Image(systemName: symbol)
-                .font(.system(size: 64))
-                .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(.tint)
-            Text("Click Scan to find junk")
-                .font(.title3)
-                .foregroundStyle(.secondary)
+        EmptyStateView(
+            icon: symbol,
+            title: "Ready to scan \(title)",
+            message: lastError ?? "Press Start Scan to look for items that match the rule set."
+        ) {
             Button {
                 scan()
             } label: {
                 Label("Start Scan", systemImage: "magnifyingglass")
+                    .frame(minWidth: 160)
+                    .padding(.vertical, 4)
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
             .keyboardShortcut(.defaultAction)
-            if let lastError {
-                Text(lastError).font(.caption).foregroundStyle(.red).padding(.top, 8)
-            }
-            Spacer()
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var scanningState: some View {

@@ -52,16 +52,11 @@ struct LoginItemsView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "power")
-                .font(.system(size: 28))
-                .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(.tint)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Login Items").font(.title2.weight(.semibold))
-                Text("LaunchAgents and Daemons that auto-start").font(.callout).foregroundStyle(.secondary)
-            }
-            Spacer()
+        ModuleHeader(
+            icon: "power",
+            title: "Login Items",
+            subtitle: "LaunchAgents and Daemons that auto-start"
+        ) {
             Button {
                 Task { await reload() }
             } label: {
@@ -69,8 +64,6 @@ struct LoginItemsView: View {
             }
             .disabled(phase == .scanning)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
     }
 
     private var toolbar: some View {

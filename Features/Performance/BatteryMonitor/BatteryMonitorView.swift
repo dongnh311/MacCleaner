@@ -35,18 +35,11 @@ struct BatteryMonitorView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 12) {
-            Image(systemName: stats.isCharging ? "battery.100.bolt" : batterySymbol)
-                .font(.system(size: 28))
-                .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(.tint)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Battery").font(.title2.weight(.semibold))
-                Text("Live IOKit power source data").font(.callout).foregroundStyle(.secondary)
-            }
-            Spacer()
-        }
-        .padding(.horizontal, 16).padding(.vertical, 12)
+        ModuleHeader(
+            icon: stats.isCharging ? "battery.100.bolt" : batterySymbol,
+            title: "Battery",
+            subtitle: "Live IOKit power source data"
+        )
     }
 
     private var gauge: some View {

@@ -20,21 +20,15 @@ struct MyToolsView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "star")
-                .font(.system(size: 28))
-                .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(.tint)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("My Tools").font(.title2.weight(.semibold))
-                Text("Pinned modules — your shortcuts").font(.callout).foregroundStyle(.secondary)
-            }
-            Spacer()
+        ModuleHeader(
+            icon: "star",
+            title: "My Tools",
+            subtitle: "Pinned modules — your shortcuts"
+        ) {
             Button(editing ? "Done" : "Edit") {
                 editing.toggle()
             }
         }
-        .padding(.horizontal, 16).padding(.vertical, 12)
     }
 
     @ViewBuilder
