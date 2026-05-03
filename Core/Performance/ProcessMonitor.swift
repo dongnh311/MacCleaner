@@ -40,9 +40,12 @@ actor ProcessMonitor {
             Log.app.error("ps spawn failed: \(error.localizedDescription, privacy: .public)")
             return []
         }
-        process.waitUntilExit()
-
+        // Read the pipe BEFORE waitUntilExit. With 500+ processes, ps output
+        // exceeds the 64KB pipe buffer; if we wait first, ps blocks on write
+        // and we deadlock. readDataToEndOfFile drains until ps closes the
+        // pipe on exit, then waitUntilExit returns immediately.
         let data = stdout.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
         guard let text = String(data: data, encoding: .utf8) else { return [] }
 
         var results: [ProcessSnapshot] = []

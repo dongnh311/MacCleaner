@@ -47,10 +47,9 @@ actor HomebrewUpdater {
             process.standardError = stderr
 
             try process.run()
-            process.waitUntilExit()
-
             let outData = stdout.fileHandleForReading.readDataToEndOfFile()
             let errData = stderr.fileHandleForReading.readDataToEndOfFile()
+            process.waitUntilExit()
             let errMsg = String(data: errData, encoding: .utf8) ?? ""
 
             guard process.terminationStatus == 0 else {
@@ -72,8 +71,8 @@ actor HomebrewUpdater {
             let stderr = Pipe()
             process.standardError = stderr
             try process.run()
-            process.waitUntilExit()
             let errData = stderr.fileHandleForReading.readDataToEndOfFile()
+            process.waitUntilExit()
             let errMsg = String(data: errData, encoding: .utf8) ?? ""
             guard process.terminationStatus == 0 else {
                 throw UpdaterError.shellFailed(process.terminationStatus, errMsg)
