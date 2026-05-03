@@ -19,6 +19,10 @@ final class AppContainer: ObservableObject {
     let leftoverDetector: LeftoverDetector
     let homebrewUpdater: HomebrewUpdater
     let sparkleUpdater: SparkleUpdater
+    let processMonitor: ProcessMonitor
+    let loginItems: LoginItemsService
+    let memoryService: MemoryService
+    let batteryService: BatteryService
 
     init() {
         let database: AppDatabase
@@ -51,6 +55,10 @@ final class AppContainer: ObservableObject {
         self.leftoverDetector = LeftoverDetector()
         self.homebrewUpdater = HomebrewUpdater()
         self.sparkleUpdater = SparkleUpdater()
+        self.processMonitor = ProcessMonitor()
+        self.loginItems = LoginItemsService()
+        self.memoryService = MemoryService()
+        self.batteryService = BatteryService()
 
         Log.app.info("AppContainer initialised")
 

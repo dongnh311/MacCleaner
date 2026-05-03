@@ -56,6 +56,16 @@ struct RootView: View {
             UninstallerView()
         case .updater:
             UpdaterView()
+        case .maintenance:
+            MaintenanceView()
+        case .loginItems:
+            LoginItemsView()
+        case .processMonitor:
+            ProcessMonitorView()
+        case .memory:
+            MemoryReleaseView()
+        case .battery:
+            BatteryMonitorView()
         default:
             ModulePlaceholderView(selection: selection)
         }
