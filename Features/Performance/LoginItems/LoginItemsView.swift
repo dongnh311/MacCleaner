@@ -12,6 +12,7 @@ struct LoginItemsView: View {
     @State private var search: String = ""
     @State private var scopeFilter: ScopeFilter = .all
     @State private var togglingLabels = Set<String>()
+    @State private var pendingDelete: LoginItem?
 
     enum Phase { case idle, scanning, ready }
     enum ScopeFilter: String, CaseIterable, Identifiable {
@@ -49,6 +50,22 @@ struct LoginItemsView: View {
             content
         }
         .task { if items.isEmpty { await reload() } }
+        .confirmationDialog(
+            "Delete \(pendingDelete?.label ?? "")?",
+            isPresented: Binding(
+                get: { pendingDelete != nil },
+                set: { if !$0 { pendingDelete = nil } }
+            ),
+            titleVisibility: .visible,
+            presenting: pendingDelete
+        ) { item in
+            Button("Delete", role: .destructive) {
+                delete(item)
+            }
+            Button("Cancel", role: .cancel) { pendingDelete = nil }
+        } message: { item in
+            Text("Unloads the agent and moves \(item.plistURL.lastPathComponent) to Quarantine. You can restore it from the Quarantine module within \(QuarantineService.retentionDays) days.")
+        }
     }
 
     private var header: some View {
@@ -131,6 +148,14 @@ struct LoginItemsView: View {
                                     set: { _ in toggle(item) }
                                 ))
                                 .labelsHidden()
+                                Button {
+                                    pendingDelete = item
+                                } label: {
+                                    Image(systemName: "trash")
+                                }
+                                .buttonStyle(.plain)
+                                .foregroundStyle(.secondary)
+                                .help("Delete (move plist to Quarantine)")
                             } else {
                                 Text("admin").font(.caption2).foregroundStyle(.secondary)
                             }
@@ -139,6 +164,14 @@ struct LoginItemsView: View {
                         .contextMenu {
                             Button("Reveal Plist") {
                                 NSWorkspace.shared.activateFileViewerSelecting([item.plistURL])
+                            }
+                            if item.scope == .userAgent {
+                                Divider()
+                                Button(role: .destructive) {
+                                    pendingDelete = item
+                                } label: {
+                                    Label("Delete (move to Quarantine)", systemImage: "trash")
+                                }
                             }
                         }
                     }
@@ -173,6 +206,20 @@ struct LoginItemsView: View {
             } else {
                 lastError = "launchctl toggle failed for \(item.label)"
             }
+        }
+    }
+
+    private func delete(_ item: LoginItem) {
+        Task { @MainActor in
+            togglingLabels.insert(item.label)
+            let ok = await container.loginItems.remove(item: item, quarantine: container.quarantine)
+            togglingLabels.remove(item.label)
+            if ok {
+                await reload()
+            } else {
+                lastError = "Failed to delete \(item.label)"
+            }
+            pendingDelete = nil
         }
     }
 }

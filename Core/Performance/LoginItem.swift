@@ -34,30 +34,70 @@ actor LoginItemsService {
     }
 
     /// Toggles a user-domain LaunchAgent. Returns true on success.
+    /// Three things have to happen for the change to stick across reload + reboot:
+    ///   1. launchctl bootout / bootstrap — affects the running launchd state
+    ///   2. launchctl disable / enable — affects the persistent disable flag
+    ///   3. Write `Disabled` key into the plist — what enumerate() reads back
+    /// Without (3) the plist still says Disabled=false on next reload, so the
+    /// UI checkbox bounced right back to "on".
     func toggle(item: LoginItem) async -> Bool {
         guard item.scope == .userAgent else { return false }
         return await Task.detached(priority: .userInitiated) {
-            let action = item.isDisabled ? "bootstrap" : "bootout"
+            let nowDisabled = !item.isDisabled
             let domain = "gui/\(getuid())"
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: "/bin/launchctl")
-            if action == "bootstrap" {
-                process.arguments = [action, domain, item.plistURL.path]
+            let target = "\(domain)/\(item.label)"
+
+            if nowDisabled {
+                _ = Self.runLaunchctl(["bootout", target])           // unload running
+                _ = Self.runLaunchctl(["disable", target])           // persistent flag
             } else {
-                process.arguments = [action, "\(domain)/\(item.label)"]
+                _ = Self.runLaunchctl(["enable", target])
+                _ = Self.runLaunchctl(["bootstrap", domain, item.plistURL.path])
             }
-            process.standardError = Pipe()
-            process.standardOutput = Pipe()
-            do {
-                try process.run()
-            } catch {
-                Log.app.error("launchctl spawn failed: \(error.localizedDescription, privacy: .public)")
-                return false
-            }
-            process.waitUntilExit()
-            Log.app.info("launchctl \(action, privacy: .public) \(item.label, privacy: .public) -> exit \(process.terminationStatus)")
-            return process.terminationStatus == 0
+
+            Self.setPlistDisabled(at: item.plistURL, disabled: nowDisabled)
+            Log.app.info("toggled \(item.label, privacy: .public) -> disabled=\(nowDisabled)")
+            return true
         }.value
+    }
+
+    /// Bootouts the agent and moves its plist to quarantine. The user can
+    /// restore from the Quarantine module within retentionDays.
+    func remove(item: LoginItem, quarantine: QuarantineService) async -> Bool {
+        guard item.scope == .userAgent else { return false }
+        let domain = "gui/\(getuid())"
+        let target = "\(domain)/\(item.label)"
+        _ = Self.runLaunchctl(["bootout", target])
+        let result = await quarantine.quarantine([item.plistURL])
+        let ok = result.succeeded[item.plistURL] != nil
+        Log.app.info("removed \(item.label, privacy: .public) -> \(ok)")
+        return ok
+    }
+
+    @discardableResult
+    private nonisolated static func runLaunchctl(_ args: [String]) -> Int32 {
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/bin/launchctl")
+        p.arguments = args
+        p.standardError = Pipe()
+        p.standardOutput = Pipe()
+        do { try p.run() } catch {
+            Log.app.error("launchctl spawn failed: \(error.localizedDescription, privacy: .public)")
+            return -1
+        }
+        p.waitUntilExit()
+        return p.terminationStatus
+    }
+
+    private nonisolated static func setPlistDisabled(at url: URL, disabled: Bool) {
+        guard let data = try? Data(contentsOf: url),
+              var dict = (try? PropertyListSerialization.propertyList(from: data, format: nil)) as? [String: Any] else {
+            return
+        }
+        dict["Disabled"] = disabled
+        if let out = try? PropertyListSerialization.data(fromPropertyList: dict, format: .xml, options: 0) {
+            try? out.write(to: url)
+        }
     }
 
     private nonisolated static func collect() -> [LoginItem] {

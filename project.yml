@@ -32,9 +32,13 @@ targets:
       - path: App
       - path: Core
       - path: Features
+      - path: Resources/Assets.xcassets
       - path: Resources
         buildPhase: resources
         type: folder
+        excludes:
+          - "Assets.xcassets"
+          - "Assets.xcassets/**"
     dependencies:
       - package: GRDB
     settings:
@@ -51,6 +55,7 @@ targets:
         INFOPLIST_KEY_LSMinimumSystemVersion: "13.0"
         MARKETING_VERSION: "0.1.0"
         CURRENT_PROJECT_VERSION: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
 
   MacCleanerHelper:
     type: tool

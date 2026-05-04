@@ -43,6 +43,9 @@ struct InspectorPlaceholderView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(activityBackdrop)
         .task { await reload() }
+        .onReceive(NotificationCenter.default.publisher(for: .scanHistoryUpdated)) { _ in
+            Task { await reload() }
+        }
     }
 
     private var activityBackdrop: some View {

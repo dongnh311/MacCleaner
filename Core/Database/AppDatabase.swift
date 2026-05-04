@@ -1,6 +1,12 @@
 import Foundation
 import GRDB
 
+extension Notification.Name {
+    /// Posted on the main actor whenever a row is inserted into scan_history.
+    /// Recent Activity panel listens to this so it can update without polling.
+    static let scanHistoryUpdated = Notification.Name("MacCleaner.scanHistoryUpdated")
+}
+
 final class AppDatabase: Sendable {
 
     let writer: any DatabaseWriter
@@ -87,6 +93,9 @@ extension AppDatabase {
                 """,
                 arguments: [module, startedAt, finishedAt, itemsScanned, bytesTotal, status, sourcePath]
             )
+        }
+        await MainActor.run {
+            NotificationCenter.default.post(name: .scanHistoryUpdated, object: nil)
         }
     }
 

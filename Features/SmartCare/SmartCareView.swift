@@ -171,7 +171,7 @@ struct SmartCareView: View {
             let total = (junk?.totalBytes ?? 0) + (trash?.totalBytes ?? 0)
             return PillarModel(
                 kind: .cleanup,
-                gradient: [Color.blue.opacity(0.85), Color.cyan.opacity(0.7)],
+                gradient: [Color(red: 0.42, green: 0.32, blue: 0.96), Color(red: 0.10, green: 0.62, blue: 0.96)],
                 icon: "internaldrive.fill",
                 title: "Cleanup",
                 subtitle: "Removes unneeded junk",
@@ -233,11 +233,11 @@ struct SmartCareView: View {
                     ZStack {
                         Circle()
                             .fill(LinearGradient(
-                                colors: [.cyan.opacity(0.85), .blue.opacity(0.85)],
+                                colors: [Color(red: 0.42, green: 0.32, blue: 0.96), Color(red: 0.10, green: 0.62, blue: 0.96)],
                                 startPoint: .topLeading, endPoint: .bottomTrailing
                             ))
                             .frame(width: 76, height: 76)
-                            .shadow(color: .blue.opacity(0.4), radius: 16, y: 4)
+                            .shadow(color: Color(red: 0.42, green: 0.32, blue: 0.96).opacity(0.4), radius: 16, y: 4)
                         Circle()
                             .stroke(Color.white.opacity(0.55), lineWidth: 1.2)
                             .frame(width: 76, height: 76)
