@@ -5,13 +5,13 @@ import AppKit
 struct MenuBarPopoverView: View {
 
     @EnvironmentObject private var container: AppContainer
+    @Environment(\.openWindow) private var openWindow
 
     @State private var memory: MemoryStats?
     @State private var disk: DiskSample = DiskSample(totalBytes: 0, freeBytes: 0)
     @State private var battery: BatteryStats = .empty
     @State private var cpu: CPUSample = CPUSample(usagePercent: 0, timestamp: Date())
     @State private var refreshTimer: Timer?
-    @State private var lastSmartCareTotal: Int64?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -33,11 +33,6 @@ struct MenuBarPopoverView: View {
             Image(systemName: "sparkles").foregroundStyle(.tint)
             Text("MacCleaner").font(.system(size: 13, weight: .semibold))
             Spacer()
-            if let total = lastSmartCareTotal, total > 0 {
-                Text("\(total.formattedBytes) cleanable")
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundStyle(.orange)
-            }
         }
         .padding(.horizontal, 12).padding(.vertical, 8)
     }
@@ -77,7 +72,7 @@ struct MenuBarPopoverView: View {
     private var quickActions: some View {
         VStack(spacing: 0) {
             menuButton(title: "Run Smart Care", icon: "sparkles") {
-                Task { await runSmartCare() }
+                runSmartCare()
             }
             menuButton(title: "Open Activity Monitor", icon: "chart.line.uptrend.xyaxis") {
                 if let url = URL(string: "/Applications/Utilities/Activity Monitor.app") {
@@ -85,8 +80,7 @@ struct MenuBarPopoverView: View {
                 }
             }
             menuButton(title: "Open MacCleaner…", icon: "macwindow") {
-                NSApp.activate(ignoringOtherApps: true)
-                NSApp.windows.first(where: { $0.contentViewController != nil })?.makeKeyAndOrderFront(nil)
+                openMainWindow()
             }
         }
     }
@@ -141,8 +135,22 @@ struct MenuBarPopoverView: View {
         disk = container.systemMetrics.sampleDisk()
     }
 
-    private func runSmartCare() async {
-        let report = await container.smartCareOrchestrator.run()
-        lastSmartCareTotal = report.totalCleanableBytes
+    /// Opens the main window, navigates to Smart Care, and asks the panel to
+    /// auto-start a scan. The popover itself dismisses on focus loss, so any
+    /// long-running work needs to live in the main window where the user can
+    /// actually see progress and results.
+    private func runSmartCare() {
+        container.pendingNavigation = .smartCare
+        container.smartCareAutoRunToken = UUID()
+        openMainWindow()
+    }
+
+    private func openMainWindow() {
+        NSApp.activate(ignoringOtherApps: true)
+        if let existing = NSApp.windows.first(where: { $0.canBecomeMain && $0.contentViewController != nil }) {
+            existing.makeKeyAndOrderFront(nil)
+        } else {
+            openWindow(id: "main")
+        }
     }
 }

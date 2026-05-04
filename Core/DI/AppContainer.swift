@@ -33,6 +33,11 @@ final class AppContainer: ObservableObject {
     let photoJunkScanner: PhotoJunkScanner
     let cleanupResultsCache = CleanupResultsCache()
 
+    /// Cross-window navigation requests. Set by MenuBarExtra; consumed by RootView.
+    @Published var pendingNavigation: SidebarItem?
+    /// Bumped to ask SmartCareView to auto-start a scan on next appearance.
+    @Published var smartCareAutoRunToken: UUID?
+
     init() {
         let database: AppDatabase
         do {

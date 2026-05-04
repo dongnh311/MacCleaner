@@ -6,7 +6,7 @@ struct MacCleanerApp: App {
     @StateObject private var container = AppContainer()
 
     var body: some Scene {
-        WindowGroup {
+        WindowGroup(id: "main") {
             RootView()
                 .environmentObject(container)
                 .frame(minWidth: 1000, minHeight: 640)

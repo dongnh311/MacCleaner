@@ -28,6 +28,10 @@ struct RootView: View {
         .onChange(of: selection) { newValue in
             Log.ui.notice("sidebar selection -> \(newValue?.rawValue ?? "nil", privacy: .public)")
         }
+        .onReceive(container.$pendingNavigation.compactMap { $0 }) { item in
+            selection = item
+            container.pendingNavigation = nil
+        }
     }
 
     /// Subtle gradient drawn behind every module — picks up the section accent so the

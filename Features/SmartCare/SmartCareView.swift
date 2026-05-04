@@ -48,6 +48,11 @@ struct SmartCareView: View {
         }
         .animation(.smooth(duration: 0.25), value: phase)
         .animation(.smooth(duration: 0.25), value: cleaningSafe)
+        .task(id: container.smartCareAutoRunToken) {
+            guard container.smartCareAutoRunToken != nil, phase != .scanning else { return }
+            container.smartCareAutoRunToken = nil
+            await runScanAsync()
+        }
     }
 
     // MARK: - Hero
@@ -249,13 +254,15 @@ struct SmartCareView: View {
     // MARK: - Actions
 
     private func runScan() {
-        Task { @MainActor in
-            phase = .scanning
-            cleanedMessage = nil
-            lastError = nil
-            report = await container.smartCareOrchestrator.run()
-            phase = .ready
-        }
+        Task { @MainActor in await runScanAsync() }
+    }
+
+    private func runScanAsync() async {
+        phase = .scanning
+        cleanedMessage = nil
+        lastError = nil
+        report = await container.smartCareOrchestrator.run()
+        phase = .ready
     }
 
     private func cleanSafe() {
