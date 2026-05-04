@@ -104,9 +104,12 @@ struct AppPermissionsView: View {
             VStack(spacing: 0) {
                 ForEach(entries) { entry in
                     HStack(spacing: 8) {
-                        Text(entry.client)
-                            .font(.system(size: 12, design: .monospaced))
-                            .lineLimit(1).truncationMode(.middle)
+                        AppIdentityCell(
+                            bundleID: entry.client,
+                            programPath: nil,
+                            iconSize: 24,
+                            fallbackSymbol: "lock.shield"
+                        )
                         Spacer()
                         Text(entry.scope.displayName)
                             .font(.system(size: 10, weight: .semibold))

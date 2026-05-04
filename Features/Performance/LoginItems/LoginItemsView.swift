@@ -124,15 +124,12 @@ struct LoginItemsView: View {
                         HStack(spacing: 10) {
                             Image(systemName: item.isDisabled ? "power.circle" : "power.circle.fill")
                                 .foregroundStyle(item.isDisabled ? Color.secondary : Color.green)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(item.label).font(.system(size: 13, weight: .medium))
-                                if let program = item.program {
-                                    Text(program)
-                                        .font(.system(size: 11, design: .monospaced))
-                                        .foregroundStyle(.secondary)
-                                        .lineLimit(1).truncationMode(.middle)
-                                }
-                            }
+                            AppIdentityCell(
+                                bundleID: item.label,
+                                programPath: item.program,
+                                iconSize: 28,
+                                fallbackSymbol: "gearshape.2"
+                            )
                             Spacer()
                             Text(item.scope.displayName)
                                 .font(.system(size: 10, weight: .semibold))

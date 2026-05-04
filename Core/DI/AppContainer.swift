@@ -33,6 +33,7 @@ final class AppContainer: ObservableObject {
     let photoJunkScanner: PhotoJunkScanner
     let networkSpeedService: NetworkSpeedService
     let menuBarStatus: MenuBarStatusModel
+    let appMetadata = AppMetadataResolver()
     let cleanupResultsCache = CleanupResultsCache()
 
     /// Cross-window navigation requests. Set by MenuBarExtra; consumed by RootView.
