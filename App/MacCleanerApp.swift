@@ -28,7 +28,7 @@ struct MacCleanerApp: App {
             MenuBarPopoverView()
                 .environmentObject(container)
         } label: {
-            Image(systemName: "sparkles")
+            MenuBarStatusLabel(status: container.menuBarStatus)
         }
         .menuBarExtraStyle(.window)
     }

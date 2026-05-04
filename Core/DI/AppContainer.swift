@@ -31,6 +31,8 @@ final class AppContainer: ObservableObject {
     let myToolsStore: MyToolsStore
     let mailAttachmentsScanner: MailAttachmentsScanner
     let photoJunkScanner: PhotoJunkScanner
+    let networkSpeedService: NetworkSpeedService
+    let menuBarStatus: MenuBarStatusModel
     let cleanupResultsCache = CleanupResultsCache()
 
     /// Cross-window navigation requests. Set by MenuBarExtra; consumed by RootView.
@@ -80,6 +82,14 @@ final class AppContainer: ObservableObject {
         self.permissionsReader = PermissionsReader()
         self.systemMetrics = SystemMetrics()
         self.myToolsStore = MyToolsStore()
+        self.networkSpeedService = NetworkSpeedService()
+
+        self.menuBarStatus = MenuBarStatusModel(
+            systemMetrics: systemMetrics,
+            memoryService: memoryService,
+            batteryService: batteryService,
+            networkService: networkSpeedService
+        )
 
         let systemJunkRef = systemJunkScanner
         let trashRef = trashBinScanner
@@ -99,6 +109,8 @@ final class AppContainer: ObservableObject {
         )
 
         Log.app.info("AppContainer initialised")
+
+        menuBarStatus.start()
 
         Task { [ruleEngine, quarantine] in
             do {
