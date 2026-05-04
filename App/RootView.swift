@@ -5,6 +5,7 @@ struct RootView: View {
     @EnvironmentObject private var container: AppContainer
     @State private var selection: SidebarItem? = .smartCare
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
+    @State private var showInspector: Bool = true
     @State private var showOnboarding = !UserDefaults.standard.bool(forKey: "onboarding.completed")
 
     var body: some View {
@@ -15,9 +16,33 @@ struct RootView: View {
             moduleContent
                 .background(moduleBackdrop)
                 .navigationSplitViewColumnWidth(min: 480, ideal: 640)
+                .toolbar {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button {
+                            withAnimation(.smooth(duration: 0.25)) {
+                                showInspector.toggle()
+                            }
+                        } label: {
+                            Image(systemName: showInspector ? "sidebar.right" : "sidebar.right")
+                                .symbolVariant(showInspector ? .none : .fill)
+                        }
+                        .help(showInspector ? "Hide Recent Activity" : "Show Recent Activity")
+                        .keyboardShortcut("0", modifiers: [.command, .option])
+                    }
+                }
         } detail: {
-            InspectorPlaceholderView()
-                .navigationSplitViewColumnWidth(min: 280, ideal: 320, max: 400)
+            Group {
+                if showInspector {
+                    InspectorPlaceholderView()
+                } else {
+                    Color.clear
+                }
+            }
+            .navigationSplitViewColumnWidth(
+                min: showInspector ? 280 : 0,
+                ideal: showInspector ? 320 : 0,
+                max: showInspector ? 400 : 0
+            )
         }
         .navigationSplitViewStyle(.balanced)
         .sheet(isPresented: $showOnboarding) {
@@ -134,6 +159,8 @@ struct RootView: View {
             AppPermissionsView()
         case .shredder:
             ShredderView()
+        case .quarantine:
+            QuarantineView()
         case .myTools:
             MyToolsView(onNavigate: { selection = $0 })
         case .none:

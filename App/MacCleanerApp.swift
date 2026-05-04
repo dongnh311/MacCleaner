@@ -25,7 +25,7 @@ struct MacCleanerApp: App {
         }
 
         MenuBarExtra {
-            MenuBarPopoverView()
+            MenuBarPopoverView(status: container.menuBarStatus)
                 .environmentObject(container)
         } label: {
             MenuBarStatusLabel(status: container.menuBarStatus)

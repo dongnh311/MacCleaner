@@ -318,9 +318,8 @@ struct UninstallerView: View {
 
     private func performUninstall(_ pending: PendingUninstall) {
         Task { @MainActor in
-            var allURLs: [URL] = [pending.app.url]
-            allURLs.append(contentsOf: pending.leftovers.map { $0.url })
-            let result = await container.quarantine.quarantine(allURLs)
+            let leftoverURLs = pending.leftovers.map { $0.url }
+            let result = await container.quarantine.quarantineApp(pending.app.url, leftovers: leftoverURLs)
             let succeededSet = Set(result.succeeded.keys.map { $0.path })
             if succeededSet.contains(pending.app.url.path) {
                 apps.removeAll { $0.id == pending.app.id }
@@ -329,9 +328,25 @@ struct UninstallerView: View {
                     leftovers = []
                     leftoverPhase = .idle
                 }
+                lastError = nil
+                let total = result.succeeded.keys.count
+                let leftoversMoved = total - 1
+                let msg = leftoversMoved > 0 ? "Moved \(pending.app.name) + \(leftoversMoved) leftover\(leftoversMoved == 1 ? "" : "s") to quarantine" : "Moved \(pending.app.name) to quarantine"
+                Log.app.info("\(msg, privacy: .public)")
+                try? await container.db.recordScan(
+                    module: "Uninstaller",
+                    startedAt: Date().addingTimeInterval(-1),
+                    finishedAt: Date(),
+                    itemsScanned: total,
+                    bytesTotal: pending.totalBytes,
+                    sourcePath: pending.app.url.path,
+                    status: result.failed.isEmpty ? "completed" : "partial"
+                )
+            } else if let firstFail = result.failed.first {
+                lastError = "Uninstall failed: \(firstFail.1)"
+                Log.app.error("Uninstall failed for \(pending.app.name, privacy: .public): \(firstFail.1, privacy: .public)")
             }
             pendingUninstall = nil
-            Log.app.info("Uninstalled \(pending.app.name, privacy: .public) — succeeded: \(result.succeeded.count), failed: \(result.failed.count)")
         }
     }
 }

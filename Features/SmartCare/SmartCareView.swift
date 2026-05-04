@@ -269,8 +269,19 @@ struct SmartCareView: View {
         phase = .scanning
         cleanedMessage = nil
         lastError = nil
-        report = await container.smartCareOrchestrator.run()
+        let startedAt = Date()
+        let r = await container.smartCareOrchestrator.run()
+        report = r
         phase = .ready
+        try? await container.db.recordScan(
+            module: "SmartCare",
+            startedAt: startedAt,
+            finishedAt: Date(),
+            itemsScanned: r.totalIssueCount,
+            bytesTotal: r.totalCleanableBytes,
+            sourcePath: nil,
+            status: "scanned"
+        )
     }
 
     private func cleanSafe() {

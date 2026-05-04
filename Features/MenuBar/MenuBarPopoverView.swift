@@ -5,6 +5,7 @@ import AppKit
 struct MenuBarPopoverView: View {
 
     @EnvironmentObject private var container: AppContainer
+    @ObservedObject var status: MenuBarStatusModel
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
@@ -86,8 +87,6 @@ struct MenuBarPopoverView: View {
             quickActionTile
         }
     }
-
-    private var status: MenuBarStatusModel { container.menuBarStatus }
 
     private var diskTile: some View {
         Tile(

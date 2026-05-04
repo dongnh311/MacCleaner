@@ -17,7 +17,7 @@ struct SidebarView: View {
                                 } icon: {
                                     Image(systemName: item.symbol)
                                         .symbolRenderingMode(.hierarchical)
-                                        .foregroundStyle(selection == item ? item.accentColor : .secondary)
+                                        .foregroundStyle(item.accentColor)
                                 }
                             }
                         }

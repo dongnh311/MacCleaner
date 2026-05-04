@@ -339,7 +339,17 @@ struct CleanupModuleView<S: CleanupScanner>: View {
                 items = result
                 phase = .scanned
                 container.cleanupResultsCache.set(scannerID: scanner.id, items: result)
-                Log.scanner.info("\(scanner.id, privacy: .public) scan: \(result.count) items, \(totalScannedSize) bytes")
+                let totalSize = result.reduce(Int64(0)) { $0 + $1.size }
+                Log.scanner.info("\(scanner.id, privacy: .public) scan: \(result.count) items, \(totalSize) bytes")
+                try? await container.db.recordScan(
+                    module: scanner.id,
+                    startedAt: scanStartedAt ?? Date(),
+                    finishedAt: Date(),
+                    itemsScanned: result.count,
+                    bytesTotal: totalSize,
+                    sourcePath: nil,
+                    status: "scanned"
+                )
             } catch {
                 lastError = error.localizedDescription
                 phase = .idle

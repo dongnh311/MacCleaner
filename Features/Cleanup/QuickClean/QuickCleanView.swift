@@ -210,6 +210,7 @@ struct QuickCleanView: View {
         Task { @MainActor in
             phase = .scanning
             resultMessage = nil
+            let startedAt = Date()
             let junk = (try? await container.systemJunkScanner.scan()) ?? []
             let trash = (try? await container.trashBinScanner.scan()) ?? []
             let safeJunk = junk.filter { $0.safetyLevel == .safe }
@@ -218,6 +219,17 @@ struct QuickCleanView: View {
             self.selectedIDs = Set(assembled.filter { !$0.items.isEmpty }.map(\.id))
             self.scannedAt = Date()
             self.phase = .ready
+            let total = assembled.reduce(Int64(0)) { $0 + $1.totalBytes }
+            let count = assembled.reduce(0) { $0 + $1.items.count }
+            try? await container.db.recordScan(
+                module: "QuickClean",
+                startedAt: startedAt,
+                finishedAt: Date(),
+                itemsScanned: count,
+                bytesTotal: total,
+                sourcePath: nil,
+                status: "scanned"
+            )
         }
     }
 
