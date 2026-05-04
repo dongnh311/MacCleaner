@@ -69,6 +69,8 @@ struct RootView: View {
             SmartCareView(onNavigate: { selection = $0 })
         case .dashboard:
             DashboardView()
+        case .quickClean:
+            QuickCleanView()
         case .systemJunk:
             CleanupModuleView(
                 scanner: container.systemJunkScanner,

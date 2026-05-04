@@ -14,6 +14,7 @@ enum SidebarSection: String, CaseIterable, Hashable {
 enum SidebarItem: String, CaseIterable, Hashable, Identifiable {
     case smartCare
     case dashboard
+    case quickClean
     case systemJunk
     case mailAttachments
     case photoJunk
@@ -40,7 +41,7 @@ enum SidebarItem: String, CaseIterable, Hashable, Identifiable {
     var section: SidebarSection {
         switch self {
         case .smartCare, .dashboard: return .scan
-        case .systemJunk, .mailAttachments, .photoJunk, .trashBins: return .cleanup
+        case .quickClean, .systemJunk, .mailAttachments, .photoJunk, .trashBins: return .cleanup
         case .malware, .privacy, .appPermissions: return .protection
         case .maintenance, .loginItems, .processMonitor, .memory, .battery: return .performance
         case .uninstaller, .updater: return .applications
@@ -53,6 +54,7 @@ enum SidebarItem: String, CaseIterable, Hashable, Identifiable {
         switch self {
         case .smartCare: return "Smart Care"
         case .dashboard: return "Dashboard"
+        case .quickClean: return "Quick Clean"
         case .systemJunk: return "System Junk"
         case .mailAttachments: return "Mail Attachments"
         case .photoJunk: return "Photo Junk"
@@ -80,6 +82,7 @@ enum SidebarItem: String, CaseIterable, Hashable, Identifiable {
         switch self {
         case .smartCare: return "sparkles"
         case .dashboard: return "square.grid.2x2"
+        case .quickClean: return "bolt.circle"
         case .systemJunk: return "trash.circle"
         case .mailAttachments: return "envelope.badge"
         case .photoJunk: return "photo.stack"
@@ -121,12 +124,13 @@ enum SidebarItem: String, CaseIterable, Hashable, Identifiable {
         switch self {
         case .smartCare:      return "1"
         case .dashboard:      return "2"
-        case .systemJunk:     return "3"
-        case .malware:        return "4"
-        case .maintenance:    return "5"
-        case .uninstaller:    return "6"
-        case .spaceLens:      return "7"
-        case .myTools:        return "8"
+        case .quickClean:     return "3"
+        case .systemJunk:     return "4"
+        case .malware:        return "5"
+        case .maintenance:    return "6"
+        case .uninstaller:    return "7"
+        case .spaceLens:      return "8"
+        case .myTools:        return "9"
         default:              return nil
         }
     }
