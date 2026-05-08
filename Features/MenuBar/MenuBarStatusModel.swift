@@ -48,10 +48,10 @@ final class MenuBarStatusModel: ObservableObject {
     private let gpuService: GPUStatsService
     private let processMonitor: ProcessMonitor
     private var task: Task<Void, Never>?
-    /// Top-process snapshot used by AlertEngine — only refreshed every 8 ticks
-    /// because /bin/ps isn't free.
-    private var lastTopProcess: (rss: Int64, name: String?) = (0, nil)
-    /// Sensors are sampled every 4th tick (~4s) — SMC reads aren't free.
+    /// Sensors + GPU + processes are sampled at slower cadences than the
+    /// 1Hz baseline — SMC reads, IORegistry walks and `ps` forks all cost
+    /// real CPU. Counter advances each tick and modulo-tests gate the
+    /// expensive samplers.
     private var tickCounter: Int = 0
 
     init(systemMetrics: SystemMetrics,
@@ -86,55 +86,70 @@ final class MenuBarStatusModel: ObservableObject {
     }
 
     private func tick() async {
+        tickCounter &+= 1
+        let runGPU = (tickCounter % 4 == 0)
+        let runSensors = (tickCounter % 4 == 0)
+        let runProcesses = (tickCounter % 8 == 0)
+
         async let cpuTask = systemMetrics.sampleCPU()
         async let memTask = memoryService.snapshot()
         async let battTask = batteryService.snapshot()
-        async let netTask = networkService.sample()
-        async let gpuTask = gpuService.sample()
+        async let netTask = networkService.sampleWithHistory()
 
         let cpu = await cpuTask
         let mem = await memTask
         let batt = await battTask
-        let net = await netTask
-        let gpu = await gpuTask
+        let netResult = await netTask
         let disk = systemMetrics.sampleDisk()
         let history = await systemMetrics.cpuHistory()
 
-        cpuPercent = Int(cpu.usagePercent.rounded())
-        cpuHistory = history
-        perCorePercent = cpu.perCorePercent
-        gpuPercent = Int(gpu.utilizationPercent.rounded())
-        memoryPressurePercent = Int(mem.pressurePercent.rounded())
-        memoryFreeBytes = mem.free + mem.inactive
-        memoryTotalBytes = mem.total
-        diskFreeBytes = disk.freeBytes
-        diskTotalBytes = disk.totalBytes
-        batteryPresent = batt.isPresent
-        batteryPercent = batt.percentage
-        batteryCharging = batt.isCharging
-        netInPerSec = net.bytesInPerSec
-        netOutPerSec = net.bytesOutPerSec
-        isVPNActive = net.isVPNActive
-        let netHist = await networkService.history()
-        netInHistory = netHist.inHistory
-        netOutHistory = netHist.outHistory
+        // Change-detection on every published assign — SwiftUI fires an
+        // invalidation cascade on @Published writes regardless of whether
+        // the value actually changed, so a sleeping app would still
+        // recompute the popover every second. The guards short-circuit
+        // when the underlying service returned the same value.
+        assignIfChanged(\.cpuPercent, Int(cpu.usagePercent.rounded()))
+        assignIfChanged(\.perCorePercent, cpu.perCorePercent)
+        assignIfChanged(\.cpuHistory, history)
+        assignIfChanged(\.memoryPressurePercent, Int(mem.pressurePercent.rounded()))
+        assignIfChanged(\.memoryFreeBytes, mem.free + mem.inactive)
+        assignIfChanged(\.memoryTotalBytes, mem.total)
+        assignIfChanged(\.diskFreeBytes, disk.freeBytes)
+        assignIfChanged(\.diskTotalBytes, disk.totalBytes)
+        assignIfChanged(\.batteryPresent, batt.isPresent)
+        assignIfChanged(\.batteryPercent, batt.percentage)
+        assignIfChanged(\.batteryCharging, batt.isCharging)
+        assignIfChanged(\.netInPerSec, netResult.sample.bytesInPerSec)
+        assignIfChanged(\.netOutPerSec, netResult.sample.bytesOutPerSec)
+        assignIfChanged(\.isVPNActive, netResult.sample.isVPNActive)
+        assignIfChanged(\.netInHistory, netResult.inHistory)
+        assignIfChanged(\.netOutHistory, netResult.outHistory)
 
-        tickCounter &+= 1
-        if tickCounter % 4 == 0 {
-            async let cpuTempT = sensorsService.cpuTemperature()
-            async let gpuTempT = sensorsService.gpuTemperature()
-            async let fanT = sensorsService.fanRPM()
-            cpuTemperature = await cpuTempT
-            gpuTemperature = await gpuTempT
-            fanRPM = await fanT
+        // GPU sampling walks IORegistry — throttle to match sensors instead
+        // of paying it on every 1Hz tick.
+        if runGPU {
+            let gpu = await gpuService.sample()
+            assignIfChanged(\.gpuPercent, Int(gpu.utilizationPercent.rounded()))
         }
-        if tickCounter % 8 == 0 {
+
+        if runSensors {
+            // One sample → cpu/gpu/fan in a single actor hop instead of three.
+            let d = await sensorsService.digest()
+            assignIfChanged(\.cpuTemperature, d.cpuTemperature)
+            assignIfChanged(\.gpuTemperature, d.gpuTemperature)
+            assignIfChanged(\.fanRPM, d.fanRPM)
+        }
+
+        var topRSS: Int64 = topByRAM.first?.memoryBytes ?? 0
+        var topName: String? = topByRAM.first?.name
+        if runProcesses {
             let procs = await processMonitor.snapshot()
-            if let top = procs.max(by: { $0.memoryBytes < $1.memoryBytes }) {
-                lastTopProcess = (top.memoryBytes, top.name)
-            }
-            topByCPU = Array(procs.sorted { $0.cpuPercent > $1.cpuPercent }.prefix(5))
-            topByRAM = Array(procs.sorted { $0.memoryBytes > $1.memoryBytes }.prefix(5))
+            let byCPU = Array(procs.sorted { $0.cpuPercent > $1.cpuPercent }.prefix(5))
+            let byRAM = Array(procs.sorted { $0.memoryBytes > $1.memoryBytes }.prefix(5))
+            assignIfChanged(\.topByCPU, byCPU)
+            assignIfChanged(\.topByRAM, byRAM)
+            topRSS = byRAM.first?.memoryBytes ?? 0
+            topName = byRAM.first?.name
         }
 
         // Hand the snapshot to the alert engine — cheap when alerts are off.
@@ -146,10 +161,19 @@ final class MenuBarStatusModel: ObservableObject {
             batteryPresent: batteryPresent,
             cpuTemperature: cpuTemperature,
             fanRPM: fanRPM,
-            topProcessRSSBytes: lastTopProcess.rss,
-            topProcessName: lastTopProcess.name,
+            topProcessRSSBytes: topRSS,
+            topProcessName: topName,
             timestamp: Date()
         ))
+    }
+
+    /// Writes only when the new value differs from the current one. The
+    /// equality check costs one comparison; the SwiftUI invalidation that
+    /// `@Published` would otherwise trigger costs an entire view rebuild.
+    private func assignIfChanged<Value: Equatable>(_ keyPath: ReferenceWritableKeyPath<MenuBarStatusModel, Value>, _ newValue: Value) {
+        if self[keyPath: keyPath] != newValue {
+            self[keyPath: keyPath] = newValue
+        }
     }
 
     // MARK: - Display helpers
@@ -159,12 +183,9 @@ final class MenuBarStatusModel: ObservableObject {
         return Int(Double(diskTotalBytes - diskFreeBytes) / Double(diskTotalBytes) * 100)
     }
 
-    /// Compact rate string for a menu-bar label: "0", "47K", "1.2M".
+    /// Compact rate string for a menu-bar label — kept for callers that
+    /// reference the static helper. New code should use `UInt64.formattedRate`.
     static func compactRate(_ bytesPerSec: UInt64) -> String {
-        let v = Double(bytesPerSec)
-        if v < 1024 { return "0" }
-        if v < 1024 * 1024 { return "\(Int(v / 1024))K" }
-        let mb = v / (1024 * 1024)
-        return mb < 10 ? String(format: "%.1fM", mb) : "\(Int(mb))M"
+        bytesPerSec.formattedRate
     }
 }

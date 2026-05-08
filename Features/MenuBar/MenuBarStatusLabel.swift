@@ -56,38 +56,6 @@ struct MenuBarStatusLabel: View {
         }
     }
 
-    private func tint(for metric: MenuBarMetric) -> Color {
-        switch metric {
-        case .cpu:      return tintForPercent(status.cpuPercent)
-        case .ram:      return tintForPercent(status.memoryPressurePercent)
-        case .gpuUsage: return tintForPercent(status.gpuPercent)
-        case .battery:
-            switch status.batteryPercent {
-            case 0...20:  return .red
-            case 21...40: return .orange
-            default:      return .green
-            }
-        case .cpuTemp:
-            guard let t = status.cpuTemperature else { return .secondary }
-            switch t {
-            case ..<60: return .green
-            case ..<80: return .orange
-            default:    return .red
-            }
-        case .fanRPM:   return .primary
-        case .netIn:    return .blue
-        case .netOut:   return .pink
-        }
-    }
-
-    private func tintForPercent(_ value: Int) -> Color {
-        switch value {
-        case ..<60:  return .green
-        case ..<85:  return .orange
-        default:     return .red
-        }
-    }
-
     private func padPercent(_ n: Int) -> String {
         let v = min(100, max(0, n))
         return String(format: "%3d%%", v)

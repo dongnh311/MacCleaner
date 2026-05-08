@@ -62,8 +62,8 @@ actor SensorsService {
             guard let sample = client.read(desc.key) else { continue }
             let value = desc.transform(sample.value)
             historyByKey[desc.key, default: []].append(value)
-            if let h = historyByKey[desc.key], h.count > historyCapacity {
-                historyByKey[desc.key] = Array(h.suffix(historyCapacity))
+            if let count = historyByKey[desc.key]?.count, count > historyCapacity {
+                historyByKey[desc.key]?.removeFirst(count - historyCapacity)
             }
             out.append(SensorReading(descriptor: desc, value: value, sampledAt: now))
         }
@@ -109,20 +109,45 @@ actor SensorsService {
     /// by the menu bar tile so we show one number, not 8.
     func cpuTemperature() async -> Double? {
         let readings = await sample()
+        return Self.cpuTemperature(in: readings)
+    }
+
+    func gpuTemperature() async -> Double? {
+        let readings = await sample()
+        return Self.gpuTemperature(in: readings)
+    }
+
+    func fanRPM() async -> Double? {
+        let readings = await sample()
+        return Self.fanRPM(in: readings)
+    }
+
+    /// One sample → CPU/GPU/Fan digests in a single actor hop. Cuts three
+    /// consecutive `await sample()` calls from the menu-bar tick down to one.
+    func digest() async -> (cpuTemperature: Double?, gpuTemperature: Double?, fanRPM: Double?) {
+        let readings = await sample()
+        return (
+            Self.cpuTemperature(in: readings),
+            Self.gpuTemperature(in: readings),
+            Self.fanRPM(in: readings)
+        )
+    }
+
+    // MARK: - Pure aggregations
+
+    private static func cpuTemperature(in readings: [SensorReading]) -> Double? {
         let cpu = readings.filter { $0.descriptor.key.hasPrefix("Tp") || $0.descriptor.key.hasPrefix("TC") }
         guard !cpu.isEmpty else { return nil }
         return cpu.map(\.value).reduce(0, +) / Double(cpu.count)
     }
 
-    func gpuTemperature() async -> Double? {
-        let readings = await sample()
+    private static func gpuTemperature(in readings: [SensorReading]) -> Double? {
         let gpu = readings.filter { $0.descriptor.key.hasPrefix("Tg") || $0.descriptor.key.hasPrefix("TG") }
         guard !gpu.isEmpty else { return nil }
         return gpu.map(\.value).reduce(0, +) / Double(gpu.count)
     }
 
-    func fanRPM() async -> Double? {
-        let readings = await sample()
+    private static func fanRPM(in readings: [SensorReading]) -> Double? {
         let fans = readings.filter { $0.descriptor.category == .fan }
         guard !fans.isEmpty else { return nil }
         return fans.map(\.value).max()

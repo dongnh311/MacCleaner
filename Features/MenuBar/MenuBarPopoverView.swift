@@ -435,11 +435,7 @@ struct MenuBarPopoverView: View {
     }
 
     private func formattedRate(_ bytes: UInt64) -> String {
-        let v = Double(bytes)
-        if v < 1024 { return "0 B/s" }
-        if v < 1024 * 1024 { return "\(Int(v / 1024)) KB/s" }
-        let mb = v / (1024 * 1024)
-        return mb < 10 ? String(format: "%.1f MB/s", mb) : "\(Int(mb)) MB/s"
+        bytes.formattedRateVerbose
     }
 }
 

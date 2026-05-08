@@ -91,7 +91,7 @@ struct DiskMonitorView: View {
                     .font(.caption).foregroundStyle(.secondary)
                 Spacer()
                 if let bsd = volume.bsdName,
-                   let rate = rates[parent(of: bsd)] {
+                   let rate = rates[container.diskIOService.parentDisk(for: bsd)] {
                     Label(formatRate(rate.bytesReadPerSec), systemImage: "arrow.down")
                         .font(.system(size: 11, design: .monospaced))
                         .foregroundStyle(.blue)
@@ -119,22 +119,8 @@ struct DiskMonitorView: View {
             .frame(height: 36)
     }
 
-    private func parent(of bsd: String) -> String {
-        // Mirror the parent rule from DiskIOService — slice → whole disk.
-        guard bsd.hasPrefix("disk") else { return bsd }
-        let suffix = bsd.dropFirst("disk".count)
-        var num = ""
-        for ch in suffix {
-            if ch.isNumber { num.append(ch) } else { break }
-        }
-        return "disk" + num
-    }
-
     private func formatRate(_ bytesPerSec: UInt64) -> String {
-        let v = Double(bytesPerSec)
-        if v < 1024 { return "\(Int(v)) B/s" }
-        if v < 1024 * 1024 { return String(format: "%.0f KB/s", v / 1024) }
-        return String(format: "%.1f MB/s", v / (1024 * 1024))
+        bytesPerSec.formattedRateVerbose
     }
 
     // MARK: - Lifecycle

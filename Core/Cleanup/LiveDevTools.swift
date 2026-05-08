@@ -74,8 +74,9 @@ enum LiveDevTools {
     ]
 
     /// Snapshot of detectable dev tools currently up on the user's machine.
-    /// Reuses `WhitelistGuard.refreshLiveProcesses` so the same set drives
-    /// both the runtime guard and the visible banner — no drift.
+    /// Drives both the visible banner and (via the same cache) the runtime
+    /// guard — no drift, no double-fork. The single `ps` invocation lives
+    /// in `WhitelistGuard.refreshLiveProcesses`; we just read its cache.
     @MainActor
     static func detect() -> [DetectedDevTool] {
         WhitelistGuard.refreshLiveProcesses()
@@ -89,7 +90,7 @@ enum LiveDevTools {
         // Non-bundled processes (qemu, gradle daemon) — surface as a single
         // "Android emulator" entry whose absence from NSWorkspace would
         // otherwise hide it from the user.
-        let processNames = liveProcessNames()
+        let processNames = WhitelistGuard.liveProcessNames()
         let qemuProcesses: Set<String> = [
             "qemu-system-aarch64", "qemu-system-x86_64",
             "emulator", "emulator64-arm64", "emulator64-crash-service"
@@ -103,32 +104,6 @@ enum LiveDevTools {
             ))
         }
         return tools
-    }
-
-    private static func liveProcessNames() -> Set<String> {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/bin/ps")
-        process.arguments = ["-A", "-o", "comm="]
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = Pipe()
-        do {
-            try process.run()
-            // Drain BEFORE waitUntilExit to avoid blocking on a full pipe buffer
-            // — `ps -A` on a busy machine can produce >64KB of output.
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            process.waitUntilExit()
-            guard let output = String(data: data, encoding: .utf8) else { return [] }
-            var names = Set<String>()
-            for line in output.split(separator: "\n") {
-                if let last = line.split(separator: "/").last {
-                    names.insert(String(last).trimmingCharacters(in: .whitespaces))
-                }
-            }
-            return names
-        } catch {
-            return []
-        }
     }
 }
 

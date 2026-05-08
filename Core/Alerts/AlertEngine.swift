@@ -110,6 +110,9 @@ final class AlertEngine: ObservableObject {
         let req = UNNotificationRequest(identifier: rule.id + "-" + UUID().uuidString,
                                         content: content,
                                         trigger: nil)
-        UNUserNotificationCenter.current().add(req) { _ in }
+        // Pass no completion handler — supplying one inherits this method's
+        // `@MainActor` isolation, and UN dispatches the callback from its
+        // own queue, which crashes Swift 6's executor assertion.
+        UNUserNotificationCenter.current().add(req)
     }
 }

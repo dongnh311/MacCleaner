@@ -166,7 +166,7 @@ struct NetworkView: View {
                             .clipShape(Capsule())
                     }
                 }
-                Text("In \(Int64(iface.bytesInTotal).formattedBytes) · Out \(Int64(iface.bytesOutTotal).formattedBytes)")
+                Text("In \(iface.bytesInTotal.formattedBytes) · Out \(iface.bytesOutTotal.formattedBytes)")
                     .font(.system(size: 10)).foregroundStyle(.secondary)
             }
             Spacer()
@@ -207,10 +207,6 @@ struct NetworkView: View {
     }
 
     private func formatRate(_ bytesPerSec: UInt64) -> String {
-        let v = Double(bytesPerSec)
-        if v < 1024 { return "\(Int(v)) B/s" }
-        if v < 1024 * 1024 { return String(format: "%.0f KB/s", v / 1024) }
-        let mb = v / (1024 * 1024)
-        return String(format: "%.2f MB/s", mb)
+        bytesPerSec.formattedRateVerbose
     }
 }

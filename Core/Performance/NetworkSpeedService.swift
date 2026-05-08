@@ -50,6 +50,13 @@ actor NetworkSpeedService {
         (inHistory, outHistory)
     }
 
+    /// Sample + post-sample history snapshot in one actor hop. Saves a
+    /// suspension on the menu-bar tick (which fetches both each second).
+    func sampleWithHistory() -> (sample: NetworkSample, inHistory: [Double], outHistory: [Double]) {
+        let snap = sample()
+        return (snap, inHistory, outHistory)
+    }
+
     func interfaces() -> [NetworkInterfaceInfo] {
         Self.readInterfaceList()
     }

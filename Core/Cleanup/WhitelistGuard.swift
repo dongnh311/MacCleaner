@@ -101,6 +101,16 @@ enum WhitelistGuard {
     /// Cache populated at clean-time so isProtected() stays cheap. Updated
     /// from the main actor before each batch via `refreshLiveProcesses`.
     nonisolated(unsafe) private static var liveAppBundleIDs: Set<String> = []
+    /// Last `ps -A` snapshot kept around so `LiveDevTools.detect()` and
+    /// any other caller can read process names without forking ps a
+    /// second time. Refreshed in lockstep with `liveAppBundleIDs`.
+    nonisolated(unsafe) private static var liveProcessNamesCache: Set<String> = []
+    /// Cache stamp so back-to-back delete batches in the same Clean
+    /// reuse the snapshot instead of forking ps each time. 30s is short
+    /// enough that a user quitting AS mid-clean still sees the change
+    /// after the next batch.
+    nonisolated(unsafe) private static var lastRefreshAt: Date = .distantPast
+    private static let refreshTTL: TimeInterval = 30
 
     /// Bundle IDs of macOS system processes that hold cache / state files
     /// open the entire time the user is logged in. Wiping these while the
@@ -230,25 +240,38 @@ enum WhitelistGuard {
         return false
     }
 
-    /// Refreshes the cached "live app bundle ID" set used by isProtected.
-    /// Must be called from the main actor before each delete batch. Cheap —
-    /// just reads NSWorkspace + a single `ps` call.
+    /// Refreshes the cached "live app bundle ID" + process-name sets used
+    /// by `isProtected` and `LiveDevTools.detect`. Cached for 30s so
+    /// back-to-back delete batches (or popover refreshes) don't re-fork
+    /// `ps`. Pass `force: true` when the user explicitly asked for a fresh
+    /// snapshot (Quick Clean banner refresh).
     @MainActor
-    static func refreshLiveProcesses() {
+    static func refreshLiveProcesses(force: Bool = false) {
+        if !force, Date().timeIntervalSince(lastRefreshAt) < refreshTTL { return }
         var ids = Set<String>()
         for app in NSWorkspace.shared.runningApplications {
             if let id = app.bundleIdentifier { ids.insert(id) }
         }
-        for name in liveProcessExecutableNames() {
+        let names = liveProcessExecutableNames()
+        for name in names {
             if let mapped = processNameToBundle[name] {
                 ids.insert(mapped)
             }
         }
         liveAppBundleIDs = ids
+        liveProcessNamesCache = names
+        lastRefreshAt = Date()
     }
 
-    /// Snapshot of currently running executable names (`ps -A -o comm=`).
-    /// Used to flag non-bundled tools (qemu, gradle daemon, emulator).
+    /// Snapshot of currently running executable names. Reads the cache
+    /// populated by `refreshLiveProcesses` — call that first if you need
+    /// fresh data. Useful for callers that previously forked ps themselves.
+    static func liveProcessNames() -> Set<String> {
+        liveProcessNamesCache
+    }
+
+    /// Single `ps -A -o comm=` fork. Drains stdout BEFORE waitUntilExit
+    /// so a full pipe buffer doesn't deadlock the wait.
     private static func liveProcessExecutableNames() -> Set<String> {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/ps")
@@ -258,8 +281,8 @@ enum WhitelistGuard {
         process.standardError = Pipe()
         do {
             try process.run()
-            process.waitUntilExit()
             let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            process.waitUntilExit()
             guard let output = String(data: data, encoding: .utf8) else { return [] }
             var names = Set<String>()
             for line in output.split(separator: "\n") {

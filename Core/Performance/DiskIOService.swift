@@ -75,11 +75,11 @@ actor DiskIOService {
     }
 
     private func trimHistory(for bsd: String) {
-        if let h = rateHistoryRead[bsd], h.count > historyCapacity {
-            rateHistoryRead[bsd] = Array(h.suffix(historyCapacity))
+        if let count = rateHistoryRead[bsd]?.count, count > historyCapacity {
+            rateHistoryRead[bsd]?.removeFirst(count - historyCapacity)
         }
-        if let h = rateHistoryWrite[bsd], h.count > historyCapacity {
-            rateHistoryWrite[bsd] = Array(h.suffix(historyCapacity))
+        if let count = rateHistoryWrite[bsd]?.count, count > historyCapacity {
+            rateHistoryWrite[bsd]?.removeFirst(count - historyCapacity)
         }
     }
 

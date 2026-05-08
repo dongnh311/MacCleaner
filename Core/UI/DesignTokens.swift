@@ -56,3 +56,63 @@ extension Font {
     static let mono = Font.system(.body, design: .monospaced)
     static let monoSmall = Font.system(size: 11, design: .monospaced)
 }
+
+extension Color {
+    /// Threshold tint for percent metrics (CPU, RAM, GPU). Battery uses
+    /// the inverse — see `batteryTint`.
+    static func percentTint(_ value: Int) -> Color {
+        switch value {
+        case ..<60:  return .green
+        case ..<85:  return .orange
+        default:     return .red
+        }
+    }
+
+    /// Battery percent: low is bad, high is good.
+    static func batteryTint(_ percent: Int) -> Color {
+        switch percent {
+        case 0...20:  return .red
+        case 21...40: return .orange
+        default:      return .green
+        }
+    }
+
+    /// Temperature in °C — looser than percentTint because thermal limits
+    /// kick in around 95°C, not at 85.
+    static func temperatureTint(_ celsius: Double?) -> Color {
+        guard let t = celsius else { return .secondary }
+        switch t {
+        case ..<60: return .green
+        case ..<80: return .orange
+        default:    return .red
+        }
+    }
+}
+
+extension UInt64 {
+    /// Human-friendly bytes-per-second: "0", "47K", "1.2M". Compact form,
+    /// no padding — for tile labels and inline text.
+    var formattedRate: String {
+        let v = Double(self)
+        if v < 1024 { return "0" }
+        if v < 1024 * 1024 { return "\(Int(v / 1024))K" }
+        let mb = v / (1024 * 1024)
+        return mb < 10 ? String(format: "%.1fM", mb) : "\(Int(mb))M"
+    }
+
+    /// Verbose bytes-per-second with units: "0 B/s", "47 KB/s", "1.20 MB/s".
+    /// For full-size views where the user expects unit suffixes.
+    var formattedRateVerbose: String {
+        let v = Double(self)
+        if v < 1024 { return "\(Int(v)) B/s" }
+        if v < 1024 * 1024 { return String(format: "%.0f KB/s", v / 1024) }
+        return String(format: "%.2f MB/s", v / (1024 * 1024))
+    }
+
+    /// Bytes formatted via `Int64.formattedBytes` — avoids the
+    /// `Int64(uint)` cast at every call site.
+    var formattedBytes: String {
+        let clamped = Swift.min(UInt64(Int64.max), self)
+        return Int64(clamped).formattedBytes
+    }
+}
