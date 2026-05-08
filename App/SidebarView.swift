@@ -25,9 +25,11 @@ struct SidebarView: View {
                 }
             }
             .listStyle(.sidebar)
+            .scrollContentBackground(.hidden)
             .navigationTitle("MacCleaner")
             footer
         }
+        .background(Color.clear)
     }
 
     private var footer: some View {
@@ -40,7 +42,7 @@ struct SidebarView: View {
                 .foregroundStyle(.secondary)
             Spacer()
             Button {
-                NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+                AppPresenter.openSettings()
             } label: {
                 Image(systemName: "gearshape")
             }

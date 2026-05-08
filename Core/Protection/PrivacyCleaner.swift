@@ -18,7 +18,7 @@ actor PrivacyCleaner: CleanupScanner {
         }.value
     }
 
-    func clean(_ items: [CleanableItem]) async -> CleanResult {
+    func clean(_ items: [CleanableItem], onProgress: CleanProgressHandler? = nil) async -> CleanResult {
         let runningBundles = await Self.runningBrowserBundleIDs()
         var blockedItems: [CleanableItem] = []
         var safeItems: [CleanableItem] = []
@@ -37,11 +37,12 @@ actor PrivacyCleaner: CleanupScanner {
 
         for blocked in blockedItems {
             failed.append(CleanFailure(item: blocked, reason: "Quit the browser before cleaning."))
+            onProgress?(blocked.url)
         }
 
         if !safeItems.isEmpty {
             let urls = safeItems.map { $0.url }
-            let result = await quarantine.quarantine(urls)
+            let result = await quarantine.quarantine(urls, onProgress: onProgress)
             let succeededSet = Set(result.succeeded.keys.map { $0.path })
             let failedMap: [String: String] = Dictionary(uniqueKeysWithValues: result.failed.map { ($0.0.path, $0.1) })
             for item in safeItems {

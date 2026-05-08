@@ -8,18 +8,146 @@ struct SettingsView: View {
         TabView {
             GeneralSettings()
                 .tabItem { Label("General", systemImage: "gear") }
+            MenuBarSettings()
+                .tabItem { Label("Menu Bar", systemImage: "menubar.dock.rectangle") }
+            AlertsSettings()
+                .tabItem { Label("Alerts", systemImage: "bell.badge") }
             QuarantineSettings()
                 .tabItem { Label("Quarantine", systemImage: "tray.full") }
             AboutSettings()
                 .tabItem { Label("About", systemImage: "info.circle") }
         }
-        .frame(width: 540, height: 380)
+        .frame(width: 540, height: 420)
+    }
+}
+
+private struct AlertsSettings: View {
+
+    @ObservedObject private var engine = AlertEngine.shared
+    @State private var masterEnabled: Bool = AlertEngine.shared.isEnabled
+
+    var body: some View {
+        Form {
+            Section {
+                Toggle("Enable system alerts", isOn: $masterEnabled)
+                    .onChange(of: masterEnabled) { newValue in
+                        engine.isEnabled = newValue
+                        if newValue {
+                            Task { await engine.requestAuthorizationIfNeeded() }
+                        }
+                    }
+                if masterEnabled && !engine.hasNotificationAuthorization {
+                    HStack {
+                        Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Notifications permission needed")
+                                .font(.system(size: 12, weight: .medium))
+                            Text("Open System Settings → Notifications → MacCleaner to allow alerts.")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button("Open Settings") {
+                            if let url = URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension") {
+                                NSWorkspace.shared.open(url)
+                            }
+                        }
+                    }
+                }
+            } header: {
+                Text("Master switch")
+            } footer: {
+                Text("Each rule has its own cooldown so you won't get spammed if a metric stays elevated.")
+                    .font(.caption2)
+            }
+
+            Section {
+                ForEach(AlertCatalog.builtins) { rule in
+                    Toggle(isOn: Binding(
+                        get: { engine.isRuleEnabled(rule.id) },
+                        set: { engine.setRule(rule.id, enabled: $0) }
+                    )) {
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(rule.title).font(.system(size: 13))
+                            Text(rule.detail).font(.caption2).foregroundStyle(.secondary)
+                            if let last = engine.lastFiredAt[rule.id] {
+                                Text("Last fired: \(last.formatted(.relative(presentation: .named)))")
+                                    .font(.caption2).foregroundStyle(.tertiary)
+                            }
+                        }
+                    }
+                    .disabled(!masterEnabled)
+                }
+            } header: {
+                Text("Built-in rules")
+            }
+        }
+        .formStyle(.grouped)
+        .padding()
+    }
+}
+
+private struct MenuBarSettings: View {
+
+    @ObservedObject private var config = MenuBarConfig.shared
+
+    var body: some View {
+        Form {
+            Section {
+                Text("Pick which metrics show next to the icon. Drag to reorder.")
+                    .font(.caption).foregroundStyle(.secondary)
+
+                ForEach(MenuBarMetric.allCases) { metric in
+                    HStack {
+                        Toggle(isOn: Binding(
+                            get: { config.isEnabled(metric) },
+                            set: { _ in config.toggle(metric) }
+                        )) {
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(metric.displayName).font(.system(size: 13))
+                                Text(metric.hint).font(.caption2).foregroundStyle(.secondary)
+                            }
+                        }
+                        Spacer()
+                        if config.isEnabled(metric) {
+                            Button {
+                                config.move(metric, by: -1)
+                            } label: { Image(systemName: "chevron.up") }
+                            .buttonStyle(.borderless)
+                            .help("Move left")
+                            Button {
+                                config.move(metric, by: +1)
+                            } label: { Image(systemName: "chevron.down") }
+                            .buttonStyle(.borderless)
+                            .help("Move right")
+                        }
+                    }
+                }
+            } header: {
+                Text("Menu bar metrics")
+            }
+
+            Section {
+                if config.enabledMetrics.isEmpty {
+                    Text("No metrics enabled — only the ✦ glyph will show.")
+                        .font(.caption).foregroundStyle(.secondary)
+                } else {
+                    Text(config.enabledMetrics.map(\.labelPrefix).joined(separator: " "))
+                        .font(.system(size: 12, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                }
+            } header: {
+                Text("Order preview")
+            }
+        }
+        .formStyle(.grouped)
+        .padding()
     }
 }
 
 private struct GeneralSettings: View {
     @AppStorage("appearance.preference") private var appearance: String = "system"
     @AppStorage("startup.runSmartCare") private var runSmartCareOnLaunch: Bool = false
+    @AppStorage("language.preference") private var language: String = "system"
 
     var body: some View {
         Form {
@@ -33,9 +161,35 @@ private struct GeneralSettings: View {
             } header: {
                 Text("Appearance & startup")
             }
+
+            Section {
+                Picker("Language", selection: $language) {
+                    Text("Match System").tag("system")
+                    Text("English").tag("en")
+                    Text("Tiếng Việt").tag("vi")
+                }
+                .onChange(of: language) { newValue in
+                    applyLanguage(newValue)
+                }
+                Text("Restart MacCleaner for the change to apply across every screen.")
+                    .font(.caption2).foregroundStyle(.secondary)
+            } header: {
+                Text("Language")
+            }
         }
         .formStyle(.grouped)
         .padding()
+    }
+
+    /// AppleLanguages drives every Foundation/SwiftUI localization lookup.
+    /// Setting it persists across launches; "system" clears the override
+    /// so macOS falls back to the user's system preference order.
+    private func applyLanguage(_ tag: String) {
+        if tag == "system" {
+            UserDefaults.standard.removeObject(forKey: "AppleLanguages")
+        } else {
+            UserDefaults.standard.set([tag], forKey: "AppleLanguages")
+        }
     }
 }
 

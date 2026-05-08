@@ -17,9 +17,9 @@ actor PhotoJunkScanner: CleanupScanner {
         }.value
     }
 
-    func clean(_ items: [CleanableItem]) async -> CleanResult {
+    func clean(_ items: [CleanableItem], onProgress: CleanProgressHandler? = nil) async -> CleanResult {
         let urls = items.map { $0.url }
-        let result = await quarantine.directDelete(urls)
+        let result = await quarantine.directDelete(urls, onProgress: onProgress)
         let succeededSet = Set(result.succeeded.map { $0.path })
         let failedMap = Dictionary(uniqueKeysWithValues: result.failed.map { ($0.0.path, $0.1) })
 

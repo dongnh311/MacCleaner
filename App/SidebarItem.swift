@@ -27,6 +27,10 @@ enum SidebarItem: String, CaseIterable, Hashable, Identifiable {
     case processMonitor
     case memory
     case battery
+    case sensors
+    case network
+    case bluetooth
+    case diskMonitor
     case uninstaller
     case updater
     case spaceLens
@@ -36,6 +40,7 @@ enum SidebarItem: String, CaseIterable, Hashable, Identifiable {
     case shredder
     case quarantine
     case myTools
+    case clock
 
     var id: String { rawValue }
 
@@ -44,10 +49,10 @@ enum SidebarItem: String, CaseIterable, Hashable, Identifiable {
         case .smartCare, .dashboard: return .scan
         case .quickClean, .systemJunk, .mailAttachments, .photoJunk, .trashBins: return .cleanup
         case .malware, .privacy, .appPermissions: return .protection
-        case .maintenance, .loginItems, .processMonitor, .memory, .battery: return .performance
+        case .maintenance, .loginItems, .processMonitor, .memory, .battery, .sensors, .network, .bluetooth, .diskMonitor: return .performance
         case .uninstaller, .updater: return .applications
         case .spaceLens, .largeOldFiles, .duplicates, .similarPhotos: return .files
-        case .shredder, .quarantine, .myTools: return .tools
+        case .shredder, .quarantine, .myTools, .clock: return .tools
         }
     }
 
@@ -68,6 +73,10 @@ enum SidebarItem: String, CaseIterable, Hashable, Identifiable {
         case .processMonitor: return "Process Monitor"
         case .memory: return "Memory"
         case .battery: return "Battery"
+        case .sensors: return "Sensors"
+        case .network: return "Network"
+        case .bluetooth: return "Bluetooth"
+        case .diskMonitor: return "Disk Monitor"
         case .uninstaller: return "Uninstaller"
         case .updater: return "Updater"
         case .spaceLens: return "Space Lens"
@@ -77,6 +86,7 @@ enum SidebarItem: String, CaseIterable, Hashable, Identifiable {
         case .shredder: return "Shredder"
         case .quarantine: return "Quarantine"
         case .myTools: return "My Tools"
+        case .clock: return "Clock"
         }
     }
 
@@ -97,6 +107,10 @@ enum SidebarItem: String, CaseIterable, Hashable, Identifiable {
         case .processMonitor: return "cpu"
         case .memory: return "memorychip"
         case .battery: return "battery.75percent"
+        case .sensors: return "thermometer.medium"
+        case .network: return "wifi"
+        case .bluetooth: return "dot.radiowaves.left.and.right"
+        case .diskMonitor: return "internaldrive"
         case .uninstaller: return "xmark.bin"
         case .updater: return "arrow.triangle.2.circlepath"
         case .spaceLens: return "chart.pie"
@@ -106,6 +120,7 @@ enum SidebarItem: String, CaseIterable, Hashable, Identifiable {
         case .shredder: return "scissors"
         case .quarantine: return "archivebox"
         case .myTools: return "star"
+        case .clock: return "clock"
         }
     }
 

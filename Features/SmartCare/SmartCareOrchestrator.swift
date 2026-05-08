@@ -88,13 +88,14 @@ actor SmartCareOrchestrator {
     }
 
     /// Cleans only items marked SafetyLevel.safe across the cleanup scanners.
-    func cleanAllSafeItems() async -> CleanResult {
+    func cleanAllSafeItems(onProgress: CleanProgressHandler? = nil) async -> (CleanResult, Int) {
         let junk = (try? await systemJunk.scan()) ?? []
         let safe = junk.filter { $0.safetyLevel == .safe }
         guard !safe.isEmpty else {
-            return CleanResult(removed: [], failed: [], totalBytesFreed: 0)
+            return (CleanResult(removed: [], failed: [], totalBytesFreed: 0), 0)
         }
-        return await systemJunk.clean(safe)
+        let result = await systemJunk.clean(safe, onProgress: onProgress)
+        return (result, safe.count)
     }
 
     // MARK: - Builders

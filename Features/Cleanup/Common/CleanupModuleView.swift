@@ -19,6 +19,8 @@ struct CleanupModuleView<S: CleanupScanner>: View {
     @State private var sortOrder: SortField = .sizeDesc
     @State private var pendingConfirm: PendingConfirm?
     @State private var scanStartedAt: Date?
+    @State private var detectedTools: [DetectedDevTool] = []
+    @StateObject private var progress = CleanProgressTracker()
 
     enum Phase: Equatable { case idle, scanning, cleaning, scanned }
 
@@ -135,6 +137,8 @@ struct CleanupModuleView<S: CleanupScanner>: View {
                 confirmBar(pendingConfirm)
                 Divider()
             }
+            RunningDevToolsBanner(tools: detectedTools)
+            CleanProgressFooter(tracker: progress)
             actionBar
         }
     }
@@ -337,6 +341,7 @@ struct CleanupModuleView<S: CleanupScanner>: View {
             do {
                 let result = try await scanner.scan()
                 items = result
+                detectedTools = LiveDevTools.detect()
                 phase = .scanned
                 container.cleanupResultsCache.set(scannerID: scanner.id, items: result)
                 let totalSize = result.reduce(Int64(0)) { $0 + $1.size }
@@ -371,8 +376,11 @@ struct CleanupModuleView<S: CleanupScanner>: View {
     private func performClean(_ toClean: [CleanableItem]) {
         Task { @MainActor in
             phase = .cleaning
+            detectedTools = LiveDevTools.detect()
             let startedAt = scanStartedAt ?? Date()
-            let result = await scanner.clean(toClean)
+            progress.start(total: toClean.count)
+            let result = await scanner.clean(toClean, onProgress: progress.makeHandler())
+            progress.finish()
             let removedIDs = Set(result.removed.map { $0.id })
             items.removeAll { removedIDs.contains($0.id) }
             selectedIDs.removeAll()

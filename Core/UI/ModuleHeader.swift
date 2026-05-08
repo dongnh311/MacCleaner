@@ -45,7 +45,10 @@ struct ModuleHeader<Trailing: View>: View {
         }
         .padding(.horizontal, Spacing.lg)
         .padding(.vertical, Spacing.md)
-        .background(.bar)
+        // No solid bar: the unified backdrop drawn at the root level
+        // bleeds through so the header reads as part of one continuous
+        // canvas instead of an opaque strip.
+        .background(Color.clear)
     }
 }
 

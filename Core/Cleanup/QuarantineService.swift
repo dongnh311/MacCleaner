@@ -48,7 +48,8 @@ actor QuarantineService {
     }
 
     /// Moves URLs into a timestamped quarantine session. Used for non-cache items.
-    func quarantine(_ urls: [URL]) async -> MoveResult {
+    func quarantine(_ urls: [URL], onProgress: CleanProgressHandler? = nil) async -> MoveResult {
+        await MainActor.run { WhitelistGuard.refreshLiveProcesses() }
         let sessionID = timestampString()
         let session = root.appendingPathComponent(sessionID, isDirectory: true)
         do {
@@ -66,6 +67,7 @@ actor QuarantineService {
             if WhitelistGuard.isProtected(url) {
                 failed.append((url, "Refused: protected path"))
                 Log.scanner.fault("quarantine refused on protected \(url.path, privacy: .public)")
+                onProgress?(url)
                 continue
             }
             let dest = uniqueDestination(in: session, for: url)
@@ -79,6 +81,7 @@ actor QuarantineService {
                 failed.append((url, error.localizedDescription))
                 Log.scanner.error("quarantine failed for \(url.path, privacy: .public): \(error.localizedDescription, privacy: .public)")
             }
+            onProgress?(url)
         }
         writeManifest(in: session, sessionID: sessionID, origin: nil, entries: entries)
         return MoveResult(succeeded: succeeded, failed: failed)
@@ -90,7 +93,8 @@ actor QuarantineService {
     /// uninstall an app is exactly when we *should* be allowed in. We re-check the
     /// app URL is a direct .app child of one of those folders before bypassing.
     /// Leftovers still go through the normal guard.
-    func quarantineApp(_ appURL: URL, leftovers: [URL]) async -> MoveResult {
+    func quarantineApp(_ appURL: URL, leftovers: [URL], onProgress: CleanProgressHandler? = nil) async -> MoveResult {
+        await MainActor.run { WhitelistGuard.refreshLiveProcesses() }
         guard Self.isAppBundleDirectChild(appURL) else {
             Log.scanner.fault("quarantineApp refused — not an app bundle: \(appURL.path, privacy: .public)")
             return MoveResult(succeeded: [:], failed: [(appURL, "Not an app bundle in /Applications")])
@@ -120,12 +124,15 @@ actor QuarantineService {
             failed.append((appURL, error.localizedDescription))
             Log.scanner.error("quarantineApp failed for \(appURL.path, privacy: .public): \(error.localizedDescription, privacy: .public)")
             writeManifest(in: session, sessionID: sessionID, origin: appURL.path, entries: entries)
+            onProgress?(appURL)
             return MoveResult(succeeded: succeeded, failed: failed)
         }
+        onProgress?(appURL)
 
         for url in leftovers {
             if WhitelistGuard.isProtected(url) {
                 failed.append((url, "Refused: protected path"))
+                onProgress?(url)
                 continue
             }
             let dest = uniqueDestination(in: session, for: url)
@@ -138,6 +145,7 @@ actor QuarantineService {
             } catch {
                 failed.append((url, error.localizedDescription))
             }
+            onProgress?(url)
         }
         writeManifest(in: session, sessionID: sessionID, origin: appURL.path, entries: entries)
         return MoveResult(succeeded: succeeded, failed: failed)
@@ -158,7 +166,8 @@ actor QuarantineService {
     }
 
     /// Permanently removes URLs. Used only for safe cache items where the OS regenerates content.
-    func directDelete(_ urls: [URL]) async -> DeleteResult {
+    func directDelete(_ urls: [URL], onProgress: CleanProgressHandler? = nil) async -> DeleteResult {
+        await MainActor.run { WhitelistGuard.refreshLiveProcesses() }
         var succeeded: [URL] = []
         var failed: [(URL, String)] = []
 
@@ -166,6 +175,7 @@ actor QuarantineService {
             if WhitelistGuard.isProtected(url) {
                 failed.append((url, "Refused: protected path"))
                 Log.scanner.fault("directDelete refused on protected \(url.path, privacy: .public)")
+                onProgress?(url)
                 continue
             }
             do {
@@ -176,6 +186,7 @@ actor QuarantineService {
                 failed.append((url, error.localizedDescription))
                 Log.scanner.error("delete failed for \(url.path, privacy: .public): \(error.localizedDescription, privacy: .public)")
             }
+            onProgress?(url)
         }
         return DeleteResult(succeeded: succeeded, failed: failed)
     }
@@ -262,11 +273,12 @@ actor QuarantineService {
     }
 
     /// Permanently deletes everything under quarantine root.
-    func deleteAllSessions() async -> Int {
+    func deleteAllSessions(onProgress: CleanProgressHandler? = nil) async -> Int {
         let sessions = (try? FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)) ?? []
         var deleted = 0
         for s in sessions {
             if (try? FileManager.default.removeItem(at: s)) != nil { deleted += 1 }
+            onProgress?(s)
         }
         return deleted
     }

@@ -11,6 +11,7 @@ struct DuplicateFinderView: View {
     @State private var keepIDs: [UUID: URL] = [:]
     @State private var phase: Phase = .idle
     @State private var lastError: String?
+    @StateObject private var progress = CleanProgressTracker()
 
     enum Phase { case idle, scanning, ready }
 
@@ -23,6 +24,7 @@ struct DuplicateFinderView: View {
             content
             if !groups.isEmpty {
                 Divider()
+                CleanProgressFooter(tracker: progress)
                 actionBar
             }
         }
@@ -186,7 +188,9 @@ struct DuplicateFinderView: View {
     private func quarantine(urls: [URL]) {
         guard !urls.isEmpty else { return }
         Task { @MainActor in
-            let result = await container.quarantine.quarantine(urls)
+            progress.start(total: urls.count)
+            let result = await container.quarantine.quarantine(urls, onProgress: progress.makeHandler())
+            progress.finish()
             let succeededSet = Set(result.succeeded.keys.map { $0.path })
             groups = groups.compactMap { g in
                 let remaining = g.files.filter { !succeededSet.contains($0.url.path) }

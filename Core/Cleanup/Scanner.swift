@@ -29,5 +29,11 @@ protocol CleanupScanner: Sendable {
     var id: String { get }
     var displayName: String { get }
     func scan() async throws -> [CleanableItem]
-    func clean(_ items: [CleanableItem]) async -> CleanResult
+    func clean(_ items: [CleanableItem], onProgress: CleanProgressHandler?) async -> CleanResult
+}
+
+extension CleanupScanner {
+    func clean(_ items: [CleanableItem]) async -> CleanResult {
+        await clean(items, onProgress: nil)
+    }
 }

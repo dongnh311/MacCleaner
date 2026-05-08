@@ -33,12 +33,14 @@ targets:
       - path: Core
       - path: Features
       - path: Resources/Assets.xcassets
+      - path: Resources/Localizable.xcstrings
       - path: Resources
         buildPhase: resources
         type: folder
         excludes:
           - "Assets.xcassets"
           - "Assets.xcassets/**"
+          - "Localizable.xcstrings"
     dependencies:
       - package: GRDB
     settings:
@@ -56,6 +58,7 @@ targets:
         MARKETING_VERSION: "0.1.0"
         CURRENT_PROJECT_VERSION: "1"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        SWIFT_EMIT_LOC_STRINGS: YES
 
   MacCleanerHelper:
     type: tool

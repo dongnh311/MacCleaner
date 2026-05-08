@@ -31,7 +31,7 @@ actor SystemJunkScanner: CleanupScanner {
         }
     }
 
-    func clean(_ items: [CleanableItem]) async -> CleanResult {
+    func clean(_ items: [CleanableItem], onProgress: CleanProgressHandler? = nil) async -> CleanResult {
         var directDeleteItems: [CleanableItem] = []
         var quarantineItems: [CleanableItem] = []
 
@@ -49,7 +49,7 @@ actor SystemJunkScanner: CleanupScanner {
 
         if !directDeleteItems.isEmpty {
             let urls = directDeleteItems.map { $0.url }
-            let result = await quarantine.directDelete(urls)
+            let result = await quarantine.directDelete(urls, onProgress: onProgress)
             let succeededSet = Set(result.succeeded.map { $0.path })
             let failedMap: [String: String] = Dictionary(uniqueKeysWithValues: result.failed.map { ($0.0.path, $0.1) })
             for item in directDeleteItems {
@@ -64,7 +64,7 @@ actor SystemJunkScanner: CleanupScanner {
 
         if !quarantineItems.isEmpty {
             let urls = quarantineItems.map { $0.url }
-            let result = await quarantine.quarantine(urls)
+            let result = await quarantine.quarantine(urls, onProgress: onProgress)
             let succeededSet = Set(result.succeeded.keys.map { $0.path })
             let failedMap: [String: String] = Dictionary(uniqueKeysWithValues: result.failed.map { ($0.0.path, $0.1) })
             for item in quarantineItems {

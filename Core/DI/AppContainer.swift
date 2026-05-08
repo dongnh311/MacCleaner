@@ -32,6 +32,12 @@ final class AppContainer: ObservableObject {
     let mailAttachmentsScanner: MailAttachmentsScanner
     let photoJunkScanner: PhotoJunkScanner
     let networkSpeedService: NetworkSpeedService
+    let sensorsService: SensorsService
+    let gpuStatsService: GPUStatsService
+    let publicIPService: PublicIPService
+    let bluetoothService: BluetoothService
+    let diskIOService: DiskIOService
+    let systemActivityService: SystemActivityService
     let menuBarStatus: MenuBarStatusModel
     let appMetadata = AppMetadataResolver()
     let cleanupResultsCache = CleanupResultsCache()
@@ -84,12 +90,21 @@ final class AppContainer: ObservableObject {
         self.systemMetrics = SystemMetrics()
         self.myToolsStore = MyToolsStore()
         self.networkSpeedService = NetworkSpeedService()
+        self.sensorsService = SensorsService()
+        self.gpuStatsService = GPUStatsService()
+        self.publicIPService = PublicIPService()
+        self.bluetoothService = BluetoothService()
+        self.diskIOService = DiskIOService()
+        self.systemActivityService = SystemActivityService()
 
         self.menuBarStatus = MenuBarStatusModel(
             systemMetrics: systemMetrics,
             memoryService: memoryService,
             batteryService: batteryService,
-            networkService: networkSpeedService
+            networkService: networkSpeedService,
+            sensorsService: sensorsService,
+            gpuService: gpuStatsService,
+            processMonitor: processMonitor
         )
 
         let systemJunkRef = systemJunkScanner

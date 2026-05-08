@@ -15,6 +15,7 @@ struct UninstallerView: View {
     @State private var leftovers: [AppLeftover] = []
     @State private var leftoverPhase: LeftoverPhase = .idle
     @State private var pendingUninstall: PendingUninstall?
+    @StateObject private var progress = CleanProgressTracker()
 
     enum Phase { case idle, scanning, ready }
     enum LeftoverPhase { case idle, loading, ready }
@@ -62,6 +63,7 @@ struct UninstallerView: View {
                 toolbar
                 Divider()
                 appList
+                CleanProgressFooter(tracker: progress)
             }
             .frame(minWidth: 380)
 
@@ -319,7 +321,9 @@ struct UninstallerView: View {
     private func performUninstall(_ pending: PendingUninstall) {
         Task { @MainActor in
             let leftoverURLs = pending.leftovers.map { $0.url }
-            let result = await container.quarantine.quarantineApp(pending.app.url, leftovers: leftoverURLs)
+            progress.start(total: 1 + leftoverURLs.count)
+            let result = await container.quarantine.quarantineApp(pending.app.url, leftovers: leftoverURLs, onProgress: progress.makeHandler())
+            progress.finish()
             let succeededSet = Set(result.succeeded.keys.map { $0.path })
             if succeededSet.contains(pending.app.url.path) {
                 apps.removeAll { $0.id == pending.app.id }

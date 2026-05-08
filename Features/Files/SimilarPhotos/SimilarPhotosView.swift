@@ -12,6 +12,7 @@ struct SimilarPhotosView: View {
     @State private var phase: Phase = .idle
     @State private var lastError: String?
     @State private var threshold: Float = 12.0
+    @StateObject private var progress = CleanProgressTracker()
 
     enum Phase { case idle, scanning, ready }
 
@@ -24,6 +25,7 @@ struct SimilarPhotosView: View {
             content
             if !clusters.isEmpty {
                 Divider()
+                CleanProgressFooter(tracker: progress)
                 actionBar
             }
         }
@@ -161,7 +163,9 @@ struct SimilarPhotosView: View {
     private func quarantine(urls: [URL]) {
         guard !urls.isEmpty else { return }
         Task { @MainActor in
-            let result = await container.quarantine.quarantine(urls)
+            progress.start(total: urls.count)
+            let result = await container.quarantine.quarantine(urls, onProgress: progress.makeHandler())
+            progress.finish()
             let succeededSet = Set(result.succeeded.keys.map { $0.path })
             clusters = clusters.compactMap { c in
                 let remaining = c.photos.filter { !succeededSet.contains($0.url.path) }

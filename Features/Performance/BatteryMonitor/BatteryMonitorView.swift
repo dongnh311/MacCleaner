@@ -6,6 +6,7 @@ struct BatteryMonitorView: View {
     @EnvironmentObject private var container: AppContainer
 
     @State private var stats: BatteryStats = .empty
+    @State private var activity: SystemActivity?
     @State private var refreshTimer: Timer?
 
     var body: some View {
@@ -26,6 +27,7 @@ struct BatteryMonitorView: View {
                         gauge
                         details
                     }
+                    activityCard
                 }
                 .padding(16)
             }
@@ -108,6 +110,26 @@ struct BatteryMonitorView: View {
         }
     }
 
+    @ViewBuilder
+    private var activityCard: some View {
+        if let activity {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("SYSTEM ACTIVITY").font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
+                VStack(spacing: 0) {
+                    row("Uptime", activity.formattedUptime)
+                    Divider()
+                    row("Booted at", activity.bootedAt.formatted(date: .abbreviated, time: .shortened))
+                    if let count = activity.sleepEventsLast24h {
+                        Divider()
+                        row("Sleeps (last 24h)", "\(count)")
+                    }
+                }
+                .background(Color(NSColor.controlBackgroundColor))
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+            }
+        }
+    }
+
     private var percentColor: Color {
         switch stats.percentage {
         case 0...20:  return .red
@@ -131,6 +153,10 @@ struct BatteryMonitorView: View {
     }
 
     private func refresh() async {
-        stats = await container.batteryService.snapshot()
+        async let s = container.batteryService.snapshot()
+        async let a = container.systemActivityService.snapshot()
+        let (newStats, newActivity) = await (s, a)
+        stats = newStats
+        activity = newActivity
     }
 }

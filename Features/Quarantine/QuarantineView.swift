@@ -11,6 +11,7 @@ struct QuarantineView: View {
     @State private var phase: Phase = .loading
     @State private var lastMessage: String?
     @State private var showEmptyAllConfirm = false
+    @StateObject private var progress = CleanProgressTracker()
 
     enum Phase { case loading, ready }
 
@@ -55,6 +56,7 @@ struct QuarantineView: View {
                     .foregroundStyle(.green)
                     .padding(8)
             }
+            CleanProgressFooter(tracker: progress, tint: .pink)
         }
         .task { await reload() }
         .alert("Empty quarantine?", isPresented: $showEmptyAllConfirm) {
@@ -287,7 +289,9 @@ struct QuarantineView: View {
     }
 
     private func emptyAll() async {
-        let count = await container.quarantine.deleteAllSessions()
+        progress.start(total: sessions.count)
+        let count = await container.quarantine.deleteAllSessions(onProgress: progress.makeHandler())
+        progress.finish()
         lastMessage = "Emptied quarantine (\(count) session\(count == 1 ? "" : "s") removed)"
         await reload()
     }

@@ -10,6 +10,9 @@ struct QuickCleanView: View {
     @State private var selectedIDs: Set<Group.ID> = []
     @State private var scannedAt: Date?
     @State private var resultMessage: String?
+    @State private var detectedTools: [DetectedDevTool] = []
+    @State private var showRunningToolsConfirm = false
+    @StateObject private var progress = CleanProgressTracker()
 
     enum Phase: Equatable { case idle, scanning, ready, cleaning, done }
 
@@ -82,9 +85,32 @@ struct QuickCleanView: View {
                 .padding(.horizontal, Spacing.xl)
                 .padding(.bottom, Spacing.lg)
             }
+            RunningDevToolsBanner(tools: detectedTools)
+            CleanProgressFooter(tracker: progress, tint: .orange)
             Divider()
             footer
         }
+        .confirmationDialog(
+            runningToolsConfirmTitle,
+            isPresented: $showRunningToolsConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("Continue — skip caches for \(detectedTools.count) tool\(detectedTools.count == 1 ? "" : "s")", role: .destructive) {
+                cleanNow(skipConfirm: true)
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text(runningToolsConfirmMessage)
+        }
+    }
+
+    private var runningToolsConfirmTitle: String {
+        "Running: \(detectedTools.map(\.name).joined(separator: ", "))"
+    }
+
+    private var runningToolsConfirmMessage: String {
+        let paths = detectedTools.flatMap(\.hints).prefix(6).joined(separator: "\n• ")
+        return "These paths will be skipped to avoid crashing the IDE or killing the emulator:\n\n• \(paths)\n\nProceed with cleaning the remaining items?"
     }
 
     private var hero: some View {
@@ -218,6 +244,7 @@ struct QuickCleanView: View {
             self.groups = assembled
             self.selectedIDs = Set(assembled.filter { !$0.items.isEmpty }.map(\.id))
             self.scannedAt = Date()
+            self.detectedTools = LiveDevTools.detect()
             self.phase = .ready
             let total = assembled.reduce(Int64(0)) { $0 + $1.totalBytes }
             let count = assembled.reduce(0) { $0 + $1.items.count }
@@ -233,18 +260,33 @@ struct QuickCleanView: View {
         }
     }
 
-    private func cleanNow() {
+    private func cleanNow(skipConfirm: Bool = false) {
         let selected = groups.filter { selectedIDs.contains($0.id) }
         guard !selected.isEmpty else { return }
+
+        // Refresh dev-tools snapshot at click-time. If anything risky is up
+        // and the user hasn't confirmed yet, hand them the dialog first.
+        if !skipConfirm {
+            let live = LiveDevTools.detect()
+            self.detectedTools = live
+            if !live.isEmpty {
+                showRunningToolsConfirm = true
+                return
+            }
+        }
+
         let trashItems = selected.filter { $0.id == .trash }.flatMap(\.items)
         let junkItems = selected.filter { $0.id != .trash }.flatMap(\.items)
 
         Task { @MainActor in
             phase = .cleaning
             resultMessage = nil
-            async let junkResult = container.systemJunkScanner.clean(junkItems)
-            async let trashResult = container.trashBinScanner.clean(trashItems)
+            progress.start(total: junkItems.count + trashItems.count)
+            let handler = progress.makeHandler()
+            async let junkResult = container.systemJunkScanner.clean(junkItems, onProgress: handler)
+            async let trashResult = container.trashBinScanner.clean(trashItems, onProgress: handler)
             let (jr, tr) = await (junkResult, trashResult)
+            progress.finish()
             let freed = jr.totalBytesFreed + tr.totalBytesFreed
             let removed = jr.removed.count + tr.removed.count
             let failed = jr.failed.count + tr.failed.count
@@ -270,6 +312,7 @@ struct QuickCleanView: View {
             self.groups = assembled
             self.selectedIDs = Set(assembled.filter { !$0.items.isEmpty }.map(\.id))
             self.scannedAt = Date()
+            self.detectedTools = LiveDevTools.detect()
         }
     }
 

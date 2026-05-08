@@ -12,9 +12,10 @@ struct RootView: View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
             SidebarView(selection: $selection)
                 .navigationSplitViewColumnWidth(min: 200, ideal: 220, max: 280)
+                .background(unifiedBackdrop)
         } content: {
             moduleContent
-                .background(moduleBackdrop)
+                .background(unifiedBackdrop)
                 .navigationSplitViewColumnWidth(min: 480, ideal: 640)
                 .toolbar {
                     ToolbarItem(placement: .primaryAction) {
@@ -34,6 +35,7 @@ struct RootView: View {
             Group {
                 if showInspector {
                     InspectorPlaceholderView()
+                        .background(unifiedBackdrop)
                 } else {
                     Color.clear
                 }
@@ -68,6 +70,25 @@ struct RootView: View {
             startPoint: .top,
             endPoint: .bottom
         )
+        .ignoresSafeArea()
+    }
+
+    /// Same backdrop applied to all 3 columns so sidebar + content +
+    /// inspector blend into one canvas. NSVisualEffectView with the
+    /// underWindowBackground material is the only reliable way to defeat
+    /// the per-column materials NavigationSplitView applies on macOS —
+    /// SwiftUI's `.scrollContentBackground(.hidden)` alone isn't enough.
+    /// The accent gradient lays on top.
+    private var unifiedBackdrop: some View {
+        let accent = selection?.accentColor ?? .accentColor
+        return ZStack {
+            UnifiedBackground(material: .underWindowBackground)
+            LinearGradient(
+                colors: [accent.opacity(0.18), accent.opacity(0.04)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        }
         .ignoresSafeArea()
     }
 
@@ -146,6 +167,16 @@ struct RootView: View {
             MemoryReleaseView()
         case .battery:
             BatteryMonitorView()
+        case .sensors:
+            SensorsView()
+        case .network:
+            NetworkView()
+        case .bluetooth:
+            BluetoothView()
+        case .diskMonitor:
+            DiskMonitorView()
+        case .clock:
+            ClockView()
         case .malware:
             MalwareView()
         case .privacy:

@@ -27,7 +27,7 @@ actor RuleEngine {
             let url = URL(fileURLWithPath: expanded).standardizedFileURL
 
             guard FileManager.default.fileExists(atPath: url.path) else { continue }
-            guard !WhitelistGuard.isProtected(url) else {
+            guard !WhitelistGuard.isScanRootProtected(url) else {
                 Log.scanner.warning("rule \(rule.id, privacy: .public) targets protected path \(url.path, privacy: .public), skipping")
                 continue
             }

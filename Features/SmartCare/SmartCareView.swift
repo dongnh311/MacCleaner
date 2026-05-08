@@ -12,19 +12,21 @@ struct SmartCareView: View {
     @State private var lastError: String?
     @State private var cleaningSafe = false
     @State private var cleanedMessage: String?
+    @StateObject private var progress = CleanProgressTracker()
 
     enum Phase: Equatable { case idle, scanning, ready }
 
     var body: some View {
         VStack(spacing: 0) {
-            topBar
+            header
+            Divider()
             ZStack {
                 content
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 runFloatingButton
             }
+            CleanProgressFooter(tracker: progress)
         }
-        .background(SmartCareBackdrop().ignoresSafeArea())
         .animation(.smooth(duration: 0.25), value: phase)
         .animation(.smooth(duration: 0.25), value: cleaningSafe)
         .task(id: container.smartCareAutoRunToken) {
@@ -34,33 +36,27 @@ struct SmartCareView: View {
         }
     }
 
-    // MARK: - Top bar
+    // MARK: - Header
 
-    private var topBar: some View {
-        HStack {
-            if phase == .ready {
-                Button {
-                    runScan()
-                } label: {
-                    Label("Start Over", systemImage: "chevron.left")
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
-                .keyboardShortcut("r")
-            }
-            Spacer()
-            Text("Smart Scan")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.secondary)
-            Spacer()
+    private var header: some View {
+        ModuleHeader(
+            icon: "sparkles",
+            title: "Smart Care",
+            subtitle: "All scans in parallel — junk, trash, malware, updates, login items",
+            accent: .accentColor
+        ) {
             if phase == .ready, let report {
                 Text(report.scannedAt.formatted(date: .omitted, time: .shortened))
                     .font(.caption)
                     .foregroundStyle(.tertiary)
             }
+            if phase == .ready {
+                Button { runScan() } label: {
+                    Label("Rescan", systemImage: "arrow.clockwise")
+                }
+                .keyboardShortcut("r")
+            }
         }
-        .padding(.horizontal, Spacing.lg)
-        .padding(.vertical, Spacing.md)
     }
 
     // MARK: - Content
@@ -288,7 +284,11 @@ struct SmartCareView: View {
         cleaningSafe = true
         cleanedMessage = nil
         Task { @MainActor in
-            let result = await container.smartCareOrchestrator.cleanAllSafeItems()
+            let safeCount = report?.entries.first { $0.id == "system_junk" }?.count ?? 0
+            progress.start(total: safeCount)
+            let (result, planned) = await container.smartCareOrchestrator.cleanAllSafeItems(onProgress: progress.makeHandler())
+            if planned > safeCount { progress.start(total: planned) }
+            progress.finish()
             cleaningSafe = false
             if result.removed.isEmpty {
                 cleanedMessage = "Nothing safe to clean — review each pillar manually"

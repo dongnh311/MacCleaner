@@ -13,6 +13,7 @@ struct LargeOldFilesView: View {
     @State private var phase: Phase = .idle
     @State private var lastError: String?
     @State private var selectedIDs = Set<URL>()
+    @StateObject private var progress = CleanProgressTracker()
 
     enum Phase { case idle, scanning, ready }
 
@@ -34,6 +35,7 @@ struct LargeOldFilesView: View {
             content
             if !nodes.isEmpty {
                 Divider()
+                CleanProgressFooter(tracker: progress)
                 actionBar
             }
         }
@@ -210,7 +212,9 @@ struct LargeOldFilesView: View {
         let urls = nodes.filter { selectedIDs.contains($0.id) }.map { $0.url }
         guard !urls.isEmpty else { return }
         Task { @MainActor in
-            let result = await container.quarantine.quarantine(urls)
+            progress.start(total: urls.count)
+            let result = await container.quarantine.quarantine(urls, onProgress: progress.makeHandler())
+            progress.finish()
             let succeededSet = Set(result.succeeded.keys.map { $0.path })
             nodes.removeAll { succeededSet.contains($0.url.path) }
             selectedIDs.removeAll()

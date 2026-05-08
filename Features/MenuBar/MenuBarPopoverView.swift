@@ -13,10 +13,64 @@ struct MenuBarPopoverView: View {
             header
             protectionCard
             tileGrid
+            topProcessesCard
             footer
         }
         .padding(12)
         .frame(width: 340)
+    }
+
+    private var topProcessesCard: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Image(systemName: "chart.bar.xaxis").foregroundStyle(.tint).font(.system(size: 11))
+                Text("TOP PROCESSES").font(.system(size: 10, weight: .semibold)).foregroundStyle(.secondary)
+                Spacer()
+                Button("Open") {
+                    container.pendingNavigation = .processMonitor
+                    openMainWindow()
+                }
+                .font(.system(size: 11)).buttonStyle(.plain).foregroundStyle(.tint)
+            }
+            HStack(alignment: .top, spacing: 12) {
+                processColumn(
+                    title: "CPU",
+                    rows: status.topByCPU.map { ($0.name, String(format: "%.0f%%", $0.cpuPercent)) }
+                )
+                processColumn(
+                    title: "RAM",
+                    rows: status.topByRAM.map { ($0.name, $0.memoryBytes.formattedBytes) }
+                )
+            }
+        }
+        .padding(10)
+        .background(Color(NSColor.controlBackgroundColor))
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.primary.opacity(0.06), lineWidth: 0.5))
+    }
+
+    private func processColumn(title: String, rows: [(String, String)]) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(title)
+                .font(.system(size: 9, weight: .semibold)).foregroundStyle(.tertiary)
+            if rows.isEmpty {
+                Text("—").font(.system(size: 11)).foregroundStyle(.tertiary)
+            } else {
+                ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
+                    HStack(spacing: 4) {
+                        Text(row.0)
+                            .font(.system(size: 11))
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        Spacer(minLength: 4)
+                        Text(row.1)
+                            .font(.system(size: 10, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     // MARK: - Header
@@ -83,8 +137,98 @@ struct MenuBarPopoverView: View {
             memoryTile
             batteryTile
             cpuTile
+            gpuTile
+            sensorsTile
             networkTile
             quickActionTile
+        }
+    }
+
+    private var gpuTile: some View {
+        Button {
+            container.pendingNavigation = .sensors
+            openMainWindow()
+        } label: {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Image(systemName: "display")
+                        .foregroundStyle(.purple)
+                        .font(.system(size: 14))
+                    Text("GPU")
+                        .font(.system(size: 12, weight: .semibold))
+                    Spacer()
+                    Text("\(status.gpuPercent)%")
+                        .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(status.gpuPercent > 85 ? .orange : .secondary)
+                }
+                Text(status.gpuTemperature.map { String(format: "%.0f°C", $0) } ?? "—")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                ProgressView(value: Double(status.gpuPercent), total: 100)
+                    .progressViewStyle(.linear)
+                    .tint(.purple)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(10)
+            .background(Color(NSColor.controlBackgroundColor))
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.primary.opacity(0.06), lineWidth: 0.5))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var sensorsTile: some View {
+        Button {
+            container.pendingNavigation = .sensors
+            openMainWindow()
+        } label: {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Image(systemName: "thermometer.medium")
+                        .foregroundStyle(sensorTint)
+                        .font(.system(size: 14))
+                    Text("Sensors")
+                        .font(.system(size: 12, weight: .semibold))
+                    Spacer()
+                }
+                Text(sensorPrimary)
+                    .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(sensorTint)
+                    .contentTransition(.numericText())
+                Text(sensorSecondary)
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(10)
+            .background(Color(NSColor.controlBackgroundColor))
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.primary.opacity(0.06), lineWidth: 0.5))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var sensorPrimary: String {
+        if let cpu = status.cpuTemperature {
+            return String(format: "%.0f°C", cpu)
+        }
+        return "—"
+    }
+
+    private var sensorSecondary: String {
+        var bits: [String] = []
+        if let gpu = status.gpuTemperature { bits.append(String(format: "GPU %.0f°", gpu)) }
+        if let fan = status.fanRPM, fan > 0 { bits.append(String(format: "Fan %.0f rpm", fan)) }
+        return bits.isEmpty ? "Tap to open" : bits.joined(separator: " · ")
+    }
+
+    private var sensorTint: Color {
+        guard let t = status.cpuTemperature else { return .secondary }
+        switch t {
+        case ..<60: return .green
+        case ..<80: return .orange
+        default:    return .red
         }
     }
 
@@ -129,46 +273,83 @@ struct MenuBarPopoverView: View {
     }
 
     private var cpuTile: some View {
-        Tile(
-            icon: "cpu",
-            iconColor: .teal,
-            title: "CPU",
-            primary: "\(status.cpuPercent)%",
-            primaryColor: status.cpuPercent > 85 ? .orange : .secondary,
-            secondary: "Load",
-            actionTitle: nil
-        ) {
+        Button {
             container.pendingNavigation = .processMonitor
             openMainWindow()
+        } label: {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Image(systemName: "cpu")
+                        .foregroundStyle(.teal)
+                        .font(.system(size: 14))
+                    Text("CPU")
+                        .font(.system(size: 12, weight: .semibold))
+                    Spacer()
+                    Text("\(status.cpuPercent)%")
+                        .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(status.cpuPercent > 85 ? .orange : .secondary)
+                }
+                Text("\(status.perCorePercent.count) cores · last 60s")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+                SparklineView(values: status.cpuHistory, tint: .teal, maxValue: 100)
+                    .frame(height: 26)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(10)
+            .background(Color(NSColor.controlBackgroundColor))
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.primary.opacity(0.06), lineWidth: 0.5))
         }
+        .buttonStyle(.plain)
     }
 
     private var networkTile: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            HStack(spacing: 6) {
-                Image(systemName: "wifi")
-                    .foregroundStyle(.cyan)
-                    .font(.system(size: 14))
-                Text("Network")
-                    .font(.system(size: 12, weight: .semibold))
-                Spacer()
+        Button {
+            container.pendingNavigation = .network
+            openMainWindow()
+        } label: {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Image(systemName: "wifi")
+                        .foregroundStyle(.cyan)
+                        .font(.system(size: 14))
+                    Text("Network")
+                        .font(.system(size: 12, weight: .semibold))
+                    if status.isVPNActive {
+                        Text("VPN")
+                            .font(.system(size: 9, weight: .semibold))
+                            .padding(.horizontal, 4).padding(.vertical, 1)
+                            .background(Color.green.opacity(0.18))
+                            .foregroundStyle(.green)
+                            .clipShape(Capsule())
+                    }
+                    Spacer()
+                }
+                HStack(spacing: 4) {
+                    Image(systemName: "arrow.down").foregroundStyle(.blue).font(.system(size: 9))
+                    Text(formattedRate(status.netInPerSec))
+                        .font(.system(size: 11, design: .monospaced))
+                    Image(systemName: "arrow.up").foregroundStyle(.pink).font(.system(size: 9))
+                    Text(formattedRate(status.netOutPerSec))
+                        .font(.system(size: 11, design: .monospaced))
+                }
+                let inH = status.netInHistory
+                let outH = status.netOutHistory
+                let maxVal = max(1024.0, (inH.max() ?? 0), (outH.max() ?? 0))
+                ZStack {
+                    SparklineView(values: inH, tint: .blue, fill: true, maxValue: maxVal)
+                    SparklineView(values: outH, tint: .pink, fill: false, maxValue: maxVal)
+                }
+                .frame(height: 24)
             }
-            HStack(spacing: 4) {
-                Image(systemName: "arrow.up").foregroundStyle(.secondary)
-                Text(formattedRate(status.netOutPerSec))
-                    .font(.system(size: 11, design: .monospaced))
-            }
-            HStack(spacing: 4) {
-                Image(systemName: "arrow.down").foregroundStyle(.secondary)
-                Text(formattedRate(status.netInPerSec))
-                    .font(.system(size: 11, design: .monospaced))
-            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(10)
+            .background(Color(NSColor.controlBackgroundColor))
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.primary.opacity(0.06), lineWidth: 0.5))
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(10)
-        .background(Color(NSColor.controlBackgroundColor))
-        .clipShape(RoundedRectangle(cornerRadius: 10))
-        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.primary.opacity(0.06), lineWidth: 0.5))
+        .buttonStyle(.plain)
     }
 
     private var quickActionTile: some View {
@@ -218,7 +399,7 @@ struct MenuBarPopoverView: View {
             .controlSize(.large)
 
             Button {
-                NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+                AppPresenter.openSettings()
             } label: {
                 Image(systemName: "gearshape")
             }
@@ -227,25 +408,20 @@ struct MenuBarPopoverView: View {
             .help("Settings…")
 
             Button {
-                NSApp.terminate(nil)
+                AppPresenter.confirmAndQuit()
             } label: {
                 Image(systemName: "power")
             }
             .buttonStyle(.bordered)
             .controlSize(.large)
-            .help("Quit MacCleaner")
+            .help("Quit MacCleaner completely (close menu bar too)")
         }
     }
 
     // MARK: - Helpers
 
     private func openMainWindow() {
-        NSApp.activate(ignoringOtherApps: true)
-        if let existing = NSApp.windows.first(where: { $0.canBecomeMain && $0.contentViewController != nil }) {
-            existing.makeKeyAndOrderFront(nil)
-        } else {
-            openWindow(id: "main")
-        }
+        AppPresenter.showMainWindow(openWindow: openWindow)
     }
 
     private func batterySymbol(percent: Int) -> String {

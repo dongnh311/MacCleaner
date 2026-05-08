@@ -4,6 +4,7 @@ import SwiftUI
 struct MacCleanerApp: App {
 
     @StateObject private var container = AppContainer()
+    @NSApplicationDelegateAdaptor(MacCleanerAppDelegate.self) private var appDelegate
 
     var body: some Scene {
         WindowGroup(id: "main") {
@@ -16,8 +17,11 @@ struct MacCleanerApp: App {
                     }
                 }
         }
-        .windowStyle(.titleBar)
-        .windowToolbarStyle(.unified(showsTitle: true))
+        // Hidden title bar + unified toolbar = traffic lights float over
+        // the sidebar / inspector and the toolbar shares the window's own
+        // chrome rather than adding a separate strip.
+        .windowStyle(.hiddenTitleBar)
+        .windowToolbarStyle(.unifiedCompact(showsTitle: false))
 
         Settings {
             SettingsView()
