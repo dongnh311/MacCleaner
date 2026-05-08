@@ -59,6 +59,11 @@ targets:
         CURRENT_PROJECT_VERSION: "1"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         SWIFT_EMIT_LOC_STRINGS: YES
+        # Bluetooth API (IOBluetoothDevice.pairedDevices) requires this
+        # usage string in macOS 11+; the OS aborts the app on first call
+        # otherwise (TCC privacy violation).
+        INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription: "MacCleaner reads your paired Bluetooth devices to show their connection state and battery level."
+        INFOPLIST_KEY_NSBluetoothPeripheralUsageDescription: "MacCleaner reads your paired Bluetooth devices to show their connection state and battery level."
 
   MacCleanerHelper:
     type: tool

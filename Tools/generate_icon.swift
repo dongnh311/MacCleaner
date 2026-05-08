@@ -48,11 +48,14 @@ func renderIcon(size pixelSize: Int) -> Data {
     )!
     ctx.drawLinearGradient(highlight, start: CGPoint(x: 0, y: s), end: CGPoint(x: 0, y: s * 0.5), options: [])
 
-    // Center sparkle glyph rendered as a four-pointed star + small accents
+    // Center sparkle glyph rendered as a four-pointed star + small accents.
+    // Sized to match the visual weight of MS Office / Apple stock app icons
+    // (their glyphs occupy ~70% of the canvas — anything smaller and the
+    // icon looks visibly less "filled" in the Dock).
     let cx = s * 0.5
     let cy = s * 0.5
-    let bigR = s * 0.34   // outer radius of main star
-    let bigInner = s * 0.08
+    let bigR = s * 0.36   // outer radius of main star — matches the
+    let bigInner = s * 0.085 // visual weight of MS Office / Apple stock app icons
 
     func drawStar(centerX: CGFloat, centerY: CGFloat, outerR: CGFloat, innerR: CGFloat, color: CGColor) {
         let path = CGMutablePath()
@@ -76,10 +79,12 @@ func renderIcon(size pixelSize: Int) -> Data {
     drawStar(centerX: cx, centerY: cy, outerR: bigR, innerR: bigInner, color: CGColor(red: 1, green: 1, blue: 1, alpha: 1))
     ctx.restoreGState()
 
-    // Two small accent stars (top-right, bottom-left)
-    drawStar(centerX: cx + s * 0.25, centerY: cy + s * 0.22, outerR: s * 0.10, innerR: s * 0.025,
+    // Two small accent stars push toward the corners so the central
+    // glyph feels grounded — proportions scaled up with the bigger main
+    // star above.
+    drawStar(centerX: cx + s * 0.27, centerY: cy + s * 0.24, outerR: s * 0.11, innerR: s * 0.028,
              color: CGColor(red: 1, green: 1, blue: 1, alpha: 0.95))
-    drawStar(centerX: cx - s * 0.27, centerY: cy - s * 0.20, outerR: s * 0.08, innerR: s * 0.020,
+    drawStar(centerX: cx - s * 0.29, centerY: cy - s * 0.22, outerR: s * 0.085, innerR: s * 0.022,
              color: CGColor(red: 1, green: 1, blue: 1, alpha: 0.85))
 
     // Convert to PNG

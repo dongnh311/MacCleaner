@@ -55,45 +55,28 @@ actor BluetoothService {
             let name = device.name ?? "Unknown"
             let connected = device.isConnected()
 
-            // KVC battery keys — AirPods family + some other Apple peripherals.
-            // None of these are documented; we try them in order and accept
-            // the first non-zero. They return 0–100 as NSNumber.
-            let single = batteryValue(device, "batteryPercentSingle")
-            let left   = batteryValue(device, "batteryPercentLeft")
-            let right  = batteryValue(device, "batteryPercentRight")
-            let caseB  = batteryValue(device, "batteryPercentCase")
-            // Generic Bluetooth Battery Service GATT char (0x2A19) gets
-            // surfaced via "batteryPercent" on some Macs.
-            let generic = batteryValue(device, "batteryPercent")
-
+            // Battery readings via private KVC keys (`batteryPercentSingle`
+            // etc.) used to work on older macOS, but Apple withdrew them —
+            // calling `value(forKey:)` now raises NSUnknownKeyException and
+            // crashes the app. Pure Swift can't catch ObjC exceptions, so
+            // until we wire up an ObjC bridging file we just skip battery
+            // entirely. AirPods + standard BLE batteries can come back via
+            // CoreBluetooth GATT 0x2A19 in a future iteration.
             return BluetoothDevice(
                 id: address,
                 name: name,
                 isConnected: connected,
                 kind: kind(for: device, name: name),
-                batteryPercent: single ?? generic,
-                batteryLeft: left,
-                batteryRight: right,
-                batteryCase: caseB
+                batteryPercent: nil,
+                batteryLeft: nil,
+                batteryRight: nil,
+                batteryCase: nil
             )
         }
         .sorted { lhs, rhs in
             if lhs.isConnected != rhs.isConnected { return lhs.isConnected }
             return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
         }
-    }
-
-    /// Try multiple KVC keys safely; returns nil for any non-numeric / 0 value.
-    private nonisolated static func batteryValue(_ device: IOBluetoothDevice, _ key: String) -> Int? {
-        // `value(forKey:)` throws ObjC exception for unknown keys — wrap in
-        // perform with try? equivalent. IOBluetoothDevice inherits NSObject,
-        // and all known battery keys are valid KVC keys on Apple peripherals
-        // even when they return zero, so a plain `value(forKey:)` is safe.
-        if let n = device.value(forKey: key) as? NSNumber {
-            let v = n.intValue
-            return v > 0 ? min(100, v) : nil
-        }
-        return nil
     }
 
     private nonisolated static func kind(for device: IOBluetoothDevice, name: String) -> BluetoothDevice.Kind {
