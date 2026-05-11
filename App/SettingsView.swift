@@ -288,7 +288,7 @@ private struct AboutSettings: View {
             Text("v\(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?") • build \(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "?")")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            Text("Personal macOS cleaner — feature-parity with CleanMyMac 5")
+            Text("Personal macOS cleaner — feature-parity with CMM 5")
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)

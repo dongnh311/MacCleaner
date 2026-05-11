@@ -3,7 +3,7 @@
 > **Project type:** Internal tool, single-user (developer's personal Mac)
 > **Distribution:** Local build only — NO App Store, NO sandbox restrictions
 > **Owner:** Đông (Senior Mobile Dev, Android background → learning Swift)
-> **Reference:** CleanMyMac 5 (MacPaw) — feature parity goal
+> **Reference:** CMM 5 (MacPaw) — feature parity goal
 > **Spec version:** 1.0
 > **Date:** 2026-05-03
 
@@ -11,14 +11,14 @@
 
 ## 1. Executive Summary
 
-A native macOS application replicating the full feature set of CleanMyMac 5, built for personal use without commercial constraints. Because this is an internal tool, the app can leverage:
+A native macOS application replicating the full feature set of CMM 5, built for personal use without commercial constraints. Because this is an internal tool, the app can leverage:
 
 - **Full Disk Access** without going through MAS sandbox approval
 - **Locally-signed binary** (Developer ID or self-signed for personal machine)
 - **Direct shell command execution** (`sudo`, `launchctl`, `pmset`, `purge`)
 - **Aggressive system inspection** (system logs, kernel extensions, daemons)
 
-This frees the implementation from ~70% of the constraints CleanMyMac itself faces.
+This frees the implementation from ~70% of the constraints CMM itself faces.
 
 ---
 
@@ -253,7 +253,7 @@ protocol Scanner {
 - For App Store apps: shell out to `mas` CLI (Mac App Store CLI)
 - For Homebrew casks: `brew outdated --cask`
 - For Sparkle-enabled apps: parse `SUFeedURL` from Info.plist, fetch appcast XML, compare versions
-- Don't try to build a custom updater catalog like CleanMyMac — too much maintenance
+- Don't try to build a custom updater catalog like CMM — too much maintenance
 
 ### 3.6 Files Module
 

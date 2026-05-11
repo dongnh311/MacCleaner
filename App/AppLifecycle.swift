@@ -6,7 +6,7 @@ import SwiftUI
 /// Default Quit behaviour (Dock context-menu Quit / Cmd+Q): hide the
 /// window, drop to `.accessory` activation policy (no Dock icon), and
 /// cancel the actual termination — the process keeps running so the
-/// `MenuBarExtra` stays in the status bar. Mirrors how CleanMyMac keeps
+/// `MenuBarExtra` stays in the status bar. Mirrors how CMM keeps
 /// its menu bar component alive after the window closes.
 ///
 /// To fully terminate, the menu-bar popover sets `quitForReal = true`
