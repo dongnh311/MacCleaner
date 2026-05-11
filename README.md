@@ -23,6 +23,8 @@ Not for distribution. Single-user, ad-hoc signed.
   surfaces a single Clean Safe button.
 - **Menu bar agent** that survives Cmd+Q. Configurable metric strip
   (CPU, RAM, GPU, network) + popover with tiles + alerts.
+- **Built-in Paint** — multi-layer raster + vector editor for quick
+  markup so you don't need to install Paint S or open Preview.
 - **Localized** in English + Tiếng Việt.
 
 ---
@@ -299,6 +301,24 @@ Bookmarks for arbitrary apps, scripts and shortcuts. Per-tool icon
 grid.
 
 ![My Tools](docs/screenshots/my-tools.png)
+
+### Paint
+
+Built-in raster + vector editor for quick sketches and image markup
+— skips the need for Paint S or Preview. Multi-layer document with
+per-layer visibility/delete, transparent canvas with a checker
+backdrop, zoom 10–800% (⌘+scroll / pinch), and 8 tools (Select,
+Pencil, Brush, Eraser, Fill, Eyedropper, Text, Arrow, Line, Rect,
+Ellipse). Text/Arrow/Shapes persist as vector objects you can
+select, move, resize, rotate, restyle or delete. New Document sheet
+takes custom width/height with HD/4K/A4 presets and transparent or
+solid-colour background. Save (⌘S) overwrites the current file
+atomically; Save As… (⇧⌘S) flattens visible layers to PNG/JPG.
+Right panel toggles Layers + History tabs — History lists every
+labelled action (Pencil / Add Text / Resize / …) with click-to-
+revert.
+
+![Paint](docs/screenshots/paint.png)
 
 ---
 
