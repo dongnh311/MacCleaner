@@ -13,6 +13,7 @@ enum MenuBarMetric: String, CaseIterable, Identifiable, Codable, Sendable {
     case cpuTemp
     case gpuUsage
     case fanRPM
+    case diskUsage
 
     var id: String { rawValue }
 
@@ -27,47 +28,103 @@ enum MenuBarMetric: String, CaseIterable, Identifiable, Codable, Sendable {
         case .cpuTemp:  return "T"
         case .gpuUsage: return "GPU"
         case .fanRPM:   return "FAN"
+        case .diskUsage:return "SSD"
         }
     }
 
     /// One-letter compact label for the menu bar strip.
     var shortLabel: String {
         switch self {
-        case .cpu:      return "C"
-        case .ram:      return "R"
-        case .gpuUsage: return "G"
-        case .battery:  return "B"
-        case .cpuTemp:  return "T"
-        case .fanRPM:   return "F"
-        case .netIn:    return "↓"
-        case .netOut:   return "↑"
+        case .cpu:       return "C"
+        case .ram:       return "R"
+        case .gpuUsage:  return "G"
+        case .battery:   return "B"
+        case .cpuTemp:   return "T"
+        case .fanRPM:    return "F"
+        case .netIn:     return "↓"
+        case .netOut:    return "↑"
+        case .diskUsage: return "S"
         }
     }
 
     /// Friendly title for the Settings checklist.
     var displayName: String {
         switch self {
-        case .cpu:      return "CPU usage (%)"
-        case .ram:      return "RAM pressure (%)"
-        case .netIn:    return "Network download"
-        case .netOut:   return "Network upload"
-        case .battery:  return "Battery (%)"
-        case .cpuTemp:  return "CPU temperature"
-        case .gpuUsage: return "GPU usage (%)"
-        case .fanRPM:   return "Fan RPM"
+        case .cpu:       return "CPU usage (%)"
+        case .ram:       return "RAM pressure (%)"
+        case .netIn:     return "Network download"
+        case .netOut:    return "Network upload"
+        case .battery:   return "Battery (%)"
+        case .cpuTemp:   return "CPU temperature"
+        case .gpuUsage:  return "GPU usage (%)"
+        case .fanRPM:    return "Fan RPM"
+        case .diskUsage: return "Disk usage (%)"
         }
     }
 
     var hint: String {
         switch self {
-        case .cpu:      return "Total CPU load across all cores."
-        case .ram:      return "Memory pressure (active + wired + compressed)."
-        case .netIn:    return "Aggregate Wi-Fi/Ethernet download speed."
-        case .netOut:   return "Aggregate Wi-Fi/Ethernet upload speed."
-        case .battery:  return "Battery percent. Hidden on desktops."
-        case .cpuTemp:  return "Average across CPU thermal sensors. Requires SMC."
-        case .gpuUsage: return "From IORegistry AGX/IOAccelerator. Apple Silicon only."
-        case .fanRPM:   return "Highest fan RPM. Hidden on fanless models."
+        case .cpu:       return "Total CPU load across all cores."
+        case .ram:       return "Memory pressure (active + wired + compressed)."
+        case .netIn:     return "Aggregate Wi-Fi/Ethernet download speed."
+        case .netOut:    return "Aggregate Wi-Fi/Ethernet upload speed."
+        case .battery:   return "Battery percent. Hidden on desktops."
+        case .cpuTemp:   return "Average across CPU thermal sensors. Requires SMC."
+        case .gpuUsage:  return "From IORegistry AGX/IOAccelerator. Apple Silicon only."
+        case .fanRPM:    return "Highest fan RPM. Hidden on fanless models."
+        case .diskUsage: return "Used percentage of the startup disk."
+        }
+    }
+}
+
+enum MenuBarLabelStyle: String, CaseIterable, Identifiable, Codable, Sendable {
+    case short  // "C 27%"  — single-letter prefix (default, narrowest)
+    case full   // "CPU 27%" — 3-letter prefix, easier to read but wider
+
+    var id: String { rawValue }
+    var displayName: String {
+        switch self {
+        case .short: return "Short (C / R / G)"
+        case .full:  return "Full (CPU / RAM / GPU)"
+        }
+    }
+}
+
+enum MenuBarSeparator: String, CaseIterable, Identifiable, Codable, Sendable {
+    case pipe   // " | "  — explicit dividers (default)
+    case space  // "  "   — just whitespace, more compact
+
+    var id: String { rawValue }
+    var displayName: String {
+        switch self {
+        case .pipe:  return "Pipe ( | )"
+        case .space: return "Space"
+        }
+    }
+    var rendered: String {
+        switch self {
+        case .pipe:  return " | "
+        case .space: return "  "
+        }
+    }
+}
+
+/// What the menu-bar status item shows. `hidden` removes the item from
+/// the menu bar entirely (the app stays running — quit via the popover
+/// power button or Cmd+Q from the main window).
+enum MenuBarDisplayMode: String, CaseIterable, Identifiable, Codable, Sendable {
+    case full      // info strip + ✦ icon (default)
+    case infoOnly  // info strip only
+    case iconOnly  // ✦ icon only
+    case hidden    // not in the menu bar
+
+    var id: String { rawValue }
+    var displayName: String {
+        switch self {
+        case .full:     return "Info + Icon"
+        case .infoOnly: return "Info only"
+        case .iconOnly: return "Icon only"
+        case .hidden:   return "Hidden"
         }
     }
 }
@@ -84,18 +141,41 @@ final class MenuBarConfig: ObservableObject {
         didSet { persist() }
     }
 
+    @Published var displayMode: MenuBarDisplayMode {
+        didSet {
+            UserDefaults.standard.set(displayMode.rawValue, forKey: DefaultsKeys.menuBarDisplayMode)
+        }
+    }
+
+    @Published var separator: MenuBarSeparator {
+        didSet {
+            UserDefaults.standard.set(separator.rawValue, forKey: DefaultsKeys.menuBarSeparator)
+        }
+    }
+
+    @Published var labelStyle: MenuBarLabelStyle {
+        didSet {
+            UserDefaults.standard.set(labelStyle.rawValue, forKey: DefaultsKeys.menuBarLabelStyle)
+        }
+    }
+
     private init() {
         if let data = UserDefaults.standard.data(forKey: DefaultsKeys.menuBarEnabledMetrics),
            let stored = try? JSONDecoder().decode([MenuBarMetric].self, from: data) {
             self.enabledMetrics = stored
         } else {
-            // Stats-style default: three percent metrics + network. SSD /
-            // battery dropped because percentages don't add much info on
-            // top of the disk + battery tiles inside the popover. Upload
-            // rate listed before download to match the user's preferred
-            // strip order (`↑` left of `↓`).
-            self.enabledMetrics = [.cpu, .ram, .gpuUsage, .netOut, .netIn]
+            // Stats-style default: three percent metrics + SSD + network.
+            // SSD sits before the network pair so the order goes from
+            // "system load" → "storage" → "throughput", which is how
+            // users typically scan left-to-right.
+            self.enabledMetrics = [.cpu, .ram, .gpuUsage, .diskUsage, .netOut, .netIn]
         }
+        let raw = UserDefaults.standard.string(forKey: DefaultsKeys.menuBarDisplayMode)
+        self.displayMode = raw.flatMap(MenuBarDisplayMode.init(rawValue:)) ?? .full
+        let sep = UserDefaults.standard.string(forKey: DefaultsKeys.menuBarSeparator)
+        self.separator = sep.flatMap(MenuBarSeparator.init(rawValue:)) ?? .pipe
+        let style = UserDefaults.standard.string(forKey: DefaultsKeys.menuBarLabelStyle)
+        self.labelStyle = style.flatMap(MenuBarLabelStyle.init(rawValue:)) ?? .short
     }
 
     func toggle(_ metric: MenuBarMetric) {

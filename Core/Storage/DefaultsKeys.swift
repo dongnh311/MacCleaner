@@ -20,6 +20,15 @@ enum DefaultsKeys {
     /// Menu-bar metric pill enablement set. v1 = JSON-encoded array.
     static let menuBarEnabledMetrics = "MenuBarConfig.enabledMetrics.v1"
 
+    /// Menu-bar display mode (full / info / icon / hidden). Raw enum string.
+    static let menuBarDisplayMode = "MenuBarConfig.displayMode.v1"
+
+    /// Menu-bar separator between metric pills (pipe / space). Raw enum string.
+    static let menuBarSeparator = "MenuBarConfig.separator.v1"
+
+    /// Menu-bar metric label style (short "C" / full "CPU"). Raw enum string.
+    static let menuBarLabelStyle = "MenuBarConfig.labelStyle.v1"
+
     /// Pinned MyTools entries — JSON-encoded array.
     static let myToolsPinned = "myTools.pinned"
 

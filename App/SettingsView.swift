@@ -93,6 +93,31 @@ private struct MenuBarSettings: View {
     var body: some View {
         Form {
             Section {
+                Picker("Display", selection: $config.displayMode) {
+                    ForEach(MenuBarDisplayMode.allCases) { mode in
+                        Text(mode.displayName).tag(mode)
+                    }
+                }
+                .pickerStyle(.menu)
+                Picker("Separator", selection: $config.separator) {
+                    ForEach(MenuBarSeparator.allCases) { sep in
+                        Text(sep.displayName).tag(sep)
+                    }
+                }
+                .pickerStyle(.menu)
+                Picker("Label style", selection: $config.labelStyle) {
+                    ForEach(MenuBarLabelStyle.allCases) { style in
+                        Text(style.displayName).tag(style)
+                    }
+                }
+                .pickerStyle(.menu)
+                Text("Hidden removes the menu-bar item entirely. Open the main window or relaunch the app to bring it back.")
+                    .font(.caption).foregroundStyle(.secondary)
+            } header: {
+                Text("Menu bar visibility")
+            }
+
+            Section {
                 Text("Pick which metrics show next to the icon. Drag to reorder.")
                     .font(.caption).foregroundStyle(.secondary)
 

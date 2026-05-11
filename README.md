@@ -325,12 +325,29 @@ revert.
 ## Menu bar
 
 The status bar item shows a configurable metric strip
-(`C 27% R 78% G 9% ↑ 0K ↓ 2K | ✦`), and clicking opens a popover
-with a Mac Overview + tiles for disk / memory / battery / CPU / GPU
-/ sensors / network. Top-5 processes by CPU and RAM. Footer with
-*Run Smart Care* + Settings + Quit.
+(`C 27% | R 78% | G 9% | S 71% | ↑   0K | ↓   2K  ✦`), and clicking
+opens a popover with a Mac Overview + tiles for disk / memory /
+battery / CPU / GPU / sensors / network. Top-5 processes by CPU and
+RAM. Footer with *Run Smart Care* + Settings + Quit.
 
 ![Menu bar popover](docs/screenshots/menubar.png)
+
+Rendering notes:
+- Label is rasterised to an `NSImage` (SF Pro 14pt + monospaced-digit
+  feature, figure-space padding) because `MenuBarExtra` strips the
+  font + per-glyph colour from a raw `Text`. The image is cached by
+  content key so a stable strip costs ~0 between ticks.
+- Percent metrics colour-code by threshold (green < 60, orange < 85,
+  red ≥ 85). Battery flips: low = bad.
+
+Settings → Menu bar exposes:
+- **Visibility** — Info + Icon (default) / Info only / Icon only /
+  Hidden (removes the status item entirely).
+- **Separator** — Pipe (` | `) or Space.
+- **Label style** — Short (`C` / `R` / `G` / `S`) or Full (`CPU` /
+  `RAM` / `GPU` / `SSD`).
+- **Metrics** — CPU / RAM / GPU / SSD / battery / CPU temp / fan
+  RPM / net in / net out, toggle + reorder.
 
 Quitting the main window keeps the menu bar agent alive (transitions
 to `.accessory` activation policy). Click the power icon in the
