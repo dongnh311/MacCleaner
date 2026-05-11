@@ -6,7 +6,7 @@ struct RootView: View {
     @State private var selection: SidebarItem? = .smartCare
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @State private var showInspector: Bool = true
-    @State private var showOnboarding = !UserDefaults.standard.bool(forKey: "onboarding.completed")
+    @State private var showOnboarding = !UserDefaults.standard.bool(forKey: DefaultsKeys.onboardingCompleted)
 
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {

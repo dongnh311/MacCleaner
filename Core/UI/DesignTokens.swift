@@ -18,8 +18,28 @@ enum Radius {
 }
 
 extension View {
-    /// Card surface — subtle background + rounded corners + low-elevation shadow.
-    func cardStyle(radius: CGFloat = Radius.lg) -> some View {
+    /// Runs `action` once on appear, then again every `interval` seconds
+    /// while the view is visible. The sleep loop lives inside SwiftUI's
+    /// `.task` so it cancels cleanly on disappear and on view replacement —
+    /// no `Timer` retain dance, no manual invalidate(), no `@State` slot.
+    /// Failures or cancellations exit the loop silently; the next appear
+    /// restarts it.
+    func refreshTask(every interval: TimeInterval, action: @escaping @MainActor () async -> Void) -> some View {
+        self.task {
+            await action()
+            let nanos = UInt64(interval * 1_000_000_000)
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: nanos)
+                if Task.isCancelled { break }
+                await action()
+            }
+        }
+    }
+
+    /// Card surface — subtle background + rounded corners + low-elevation
+    /// shadow. Set `withShadow: false` for the flat look used by Performance
+    /// monitors (matching the surrounding chrome — no elevation).
+    func cardStyle(radius: CGFloat = Radius.lg, withShadow: Bool = true) -> some View {
         self
             .background(Color(NSColor.controlBackgroundColor))
             .clipShape(RoundedRectangle(cornerRadius: radius))
@@ -27,7 +47,10 @@ extension View {
                 RoundedRectangle(cornerRadius: radius)
                     .stroke(Color.primary.opacity(0.06), lineWidth: 0.5)
             )
-            .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 1)
+            .shadow(color: withShadow ? Color.black.opacity(0.05) : .clear,
+                    radius: withShadow ? 4 : 0,
+                    x: 0,
+                    y: withShadow ? 1 : 0)
     }
 
     /// Hero gradient backdrop — used behind module icons.

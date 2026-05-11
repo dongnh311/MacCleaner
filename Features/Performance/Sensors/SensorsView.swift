@@ -6,7 +6,6 @@ struct SensorsView: View {
     @EnvironmentObject private var container: AppContainer
 
     @State private var readings: [SensorReading] = []
-    @State private var refreshTimer: Timer?
     @State private var firstSampleAt: Date?
 
     var body: some View {
@@ -15,8 +14,7 @@ struct SensorsView: View {
             Divider()
             content
         }
-        .onAppear { start() }
-        .onDisappear { stop() }
+        .refreshTask(every: 3) { await sampleNow() }
     }
 
     private var header: some View {
@@ -87,12 +85,7 @@ struct SensorsView: View {
                     if r.id != readings.last?.id { Divider() }
                 }
             }
-            .background(Color(NSColor.controlBackgroundColor))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(Color.primary.opacity(0.06), lineWidth: 0.5)
-            )
+            .cardStyle(radius: 8, withShadow: false)
         }
     }
 
@@ -106,8 +99,10 @@ struct SensorsView: View {
                     .foregroundStyle(.tertiary)
             }
             Spacer()
-            SensorSparkline(key: reading.descriptor.key, tint: color(for: reading))
-                .frame(width: 80, height: 22)
+            LiveSparkline(interval: 3, tint: color(for: reading), fill: true) {
+                await container.sensorsService.history(for: reading.descriptor.key)
+            }
+            .frame(width: 80, height: 22)
             Text(reading.formatted)
                 .font(.system(size: 14, design: .monospaced))
                 .foregroundStyle(color(for: reading))
@@ -130,20 +125,6 @@ struct SensorsView: View {
         case .power:      return reading.value > 50 ? .orange : .primary
         default:          return .primary
         }
-    }
-
-    // MARK: - Lifecycle
-
-    private func start() {
-        Task { await sampleNow() }
-        refreshTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { _ in
-            Task { @MainActor in await sampleNow() }
-        }
-    }
-
-    private func stop() {
-        refreshTimer?.invalidate()
-        refreshTimer = nil
     }
 
     private func sampleNow() async {
@@ -169,30 +150,3 @@ struct SensorsView: View {
     }
 }
 
-/// Pulls the per-sensor history out of `SensorsService` on a 3-second tick
-/// without forcing the parent view to plumb the buffers itself. Lightweight
-/// — just a Sparkline backed by a small @State buffer.
-private struct SensorSparkline: View {
-    let key: String
-    let tint: Color
-    @EnvironmentObject private var container: AppContainer
-    @State private var values: [Double] = []
-    @State private var ticker: Timer?
-
-    var body: some View {
-        SparklineView(values: values, tint: tint, fill: true, maxValue: nil)
-            .onAppear { start() }
-            .onDisappear { ticker?.invalidate() }
-    }
-
-    private func start() {
-        Task { await reload() }
-        ticker = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { _ in
-            Task { @MainActor in await reload() }
-        }
-    }
-
-    private func reload() async {
-        values = await container.sensorsService.history(for: key)
-    }
-}

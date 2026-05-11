@@ -24,11 +24,30 @@ struct SystemActivity: Sendable, Hashable {
 
 actor SystemActivityService {
 
+    /// `pmset -g log` can return tens of thousands of lines on a long-uptime
+    /// machine and parsing it on every snapshot blocks a fork for ~100ms.
+    /// The sleep count doesn't change between events anyway, so cache it for
+    /// 5 minutes — well below the rate at which the user opens the battery
+    /// panel.
+    private var cachedSleepEvents: Int?
+    private var cachedSleepEventsAt: Date = .distantPast
+    private let sleepCacheTTL: TimeInterval = 300
+
     func snapshot() -> SystemActivity {
         let boot = Self.bootTime()
         let uptime = Date().timeIntervalSince(boot)
-        let sleeps = Self.sleepEventsLast24h()
+        let sleeps = sleepEventsLast24hCached()
         return SystemActivity(bootedAt: boot, uptimeSeconds: uptime, sleepEventsLast24h: sleeps)
+    }
+
+    private func sleepEventsLast24hCached() -> Int? {
+        if Date().timeIntervalSince(cachedSleepEventsAt) < sleepCacheTTL {
+            return cachedSleepEvents
+        }
+        let value = Self.sleepEventsLast24h()
+        cachedSleepEvents = value
+        cachedSleepEventsAt = Date()
+        return value
     }
 
     /// Read kern.boottime via sysctl. Returns now if the call ever fails —

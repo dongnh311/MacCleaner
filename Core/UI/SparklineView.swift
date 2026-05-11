@@ -34,3 +34,25 @@ struct SparklineView: View {
         }
     }
 }
+
+/// Single-series sparkline that pulls its data through an actor-async
+/// closure on a recurring tick. Use when you want a live chart bound to
+/// a service history without writing the @State + refreshTask plumbing
+/// at each call site. Multi-series cases (read+write disk I/O) still
+/// need bespoke wrappers — this is for the common 1-line variant.
+struct LiveSparkline: View {
+    let interval: TimeInterval
+    var tint: Color = .accentColor
+    var fill: Bool = true
+    var maxValue: Double? = nil
+    let fetch: @MainActor () async -> [Double]
+
+    @State private var values: [Double] = []
+
+    var body: some View {
+        SparklineView(values: values, tint: tint, fill: fill, maxValue: maxValue)
+            .refreshTask(every: interval) {
+                values = await fetch()
+            }
+    }
+}

@@ -23,8 +23,8 @@ actor PublicIPService {
     /// trigger a network call by itself — the caller must explicitly
     /// invoke `fetch()` after enabling.
     nonisolated static var isEnabled: Bool {
-        get { UserDefaults.standard.bool(forKey: "PublicIPService.enabled") }
-        set { UserDefaults.standard.set(newValue, forKey: "PublicIPService.enabled") }
+        get { UserDefaults.standard.bool(forKey: DefaultsKeys.publicIPEnabled) }
+        set { UserDefaults.standard.set(newValue, forKey: DefaultsKeys.publicIPEnabled) }
     }
 
     private var cached: PublicIPSnapshot?

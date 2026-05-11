@@ -7,7 +7,6 @@ struct DiskMonitorView: View {
 
     @State private var volumes: [DiskVolume] = []
     @State private var rates: [String: DiskIORate] = [:]
-    @State private var refreshTimer: Timer?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -15,8 +14,7 @@ struct DiskMonitorView: View {
             Divider()
             content
         }
-        .onAppear { start() }
-        .onDisappear { stop() }
+        .refreshTask(every: 1) { await refresh() }
     }
 
     private var header: some View {
@@ -106,12 +104,7 @@ struct DiskMonitorView: View {
             }
         }
         .padding(Spacing.md)
-        .background(Color(NSColor.controlBackgroundColor))
-        .clipShape(RoundedRectangle(cornerRadius: 10))
-        .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .stroke(Color.primary.opacity(0.06), lineWidth: 0.5)
-        )
+        .cardStyle(radius: 10, withShadow: false)
     }
 
     private func ioSparkline(for bsd: String) -> some View {
@@ -121,20 +114,6 @@ struct DiskMonitorView: View {
 
     private func formatRate(_ bytesPerSec: UInt64) -> String {
         bytesPerSec.formattedRateVerbose
-    }
-
-    // MARK: - Lifecycle
-
-    private func start() {
-        Task { await refresh() }
-        refreshTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
-            Task { @MainActor in await refresh() }
-        }
-    }
-
-    private func stop() {
-        refreshTimer?.invalidate()
-        refreshTimer = nil
     }
 
     private func refresh() async {
@@ -153,7 +132,6 @@ private struct AsyncSparkline: View {
     @EnvironmentObject private var container: AppContainer
     @State private var read: [Double] = []
     @State private var write: [Double] = []
-    @State private var timer: Timer?
 
     var body: some View {
         let maxVal = max(1024.0, (read.max() ?? 0), (write.max() ?? 0))
@@ -161,15 +139,7 @@ private struct AsyncSparkline: View {
             SparklineView(values: read, tint: .blue, fill: true, maxValue: maxVal)
             SparklineView(values: write, tint: .pink, fill: false, maxValue: maxVal)
         }
-        .onAppear { start() }
-        .onDisappear { timer?.invalidate() }
-    }
-
-    private func start() {
-        Task { await reload() }
-        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
-            Task { @MainActor in await reload() }
-        }
+        .refreshTask(every: 1) { await reload() }
     }
 
     private func reload() async {

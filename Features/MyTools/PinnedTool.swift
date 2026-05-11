@@ -13,8 +13,6 @@ final class MyToolsStore: ObservableObject {
 
     @Published private(set) var tools: [PinnedTool] = []
 
-    private let key = "myTools.pinned"
-
     init() {
         load()
     }
@@ -48,7 +46,7 @@ final class MyToolsStore: ObservableObject {
     }
 
     private func load() {
-        guard let data = UserDefaults.standard.data(forKey: key) else { return }
+        guard let data = UserDefaults.standard.data(forKey: DefaultsKeys.myToolsPinned) else { return }
         if let decoded = try? JSONDecoder().decode([PinnedTool].self, from: data) {
             tools = decoded
         }
@@ -56,7 +54,7 @@ final class MyToolsStore: ObservableObject {
 
     private func save() {
         if let data = try? JSONEncoder().encode(tools) {
-            UserDefaults.standard.set(data, forKey: key)
+            UserDefaults.standard.set(data, forKey: DefaultsKeys.myToolsPinned)
         }
     }
 }

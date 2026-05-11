@@ -94,48 +94,63 @@ final class SMCClient: @unchecked Sendable {
 
     /// Decode the SMC payload into a Double according to its declared type.
     /// Covers every type used by the keys we probe — float, fixed point,
-    /// unsigned ints, flag.
+    /// unsigned ints, flag. Unknown types return nil so the caller can
+    /// surface "—" instead of fabricating a value.
     private func decodeValue(bytes: [UInt8], type: String) -> Double? {
-        switch type {
-        case "flt ":
+        guard let kind = SMCDataType(rawValue: type) else { return nil }
+        switch kind {
+        case .float32:
             // Little-endian IEEE 754 float — Apple Silicon temps and powers.
             guard bytes.count >= 4 else { return nil }
             let raw = UInt32(bytes[0]) | (UInt32(bytes[1]) << 8) | (UInt32(bytes[2]) << 16) | (UInt32(bytes[3]) << 24)
             return Double(Float(bitPattern: raw))
-        case "sp78":
+        case .sp78:
             // Signed Q8.7 fixed point — Intel temps.
             guard bytes.count >= 2 else { return nil }
             let high = Int16(Int8(bitPattern: bytes[0]))
             let low = Int16(bytes[1])
             let raw = (high << 8) | low
             return Double(raw) / 256.0
-        case "fpe2":
+        case .fpe2:
             // Unsigned Q14.2 fixed point — Intel fan RPM.
             guard bytes.count >= 2 else { return nil }
             let raw = (UInt16(bytes[0]) << 8) | UInt16(bytes[1])
             return Double(raw) / 4.0
-        case "ui8 ":
+        case .uint8:
             guard bytes.count >= 1 else { return nil }
             return Double(bytes[0])
-        case "ui16":
+        case .uint16:
             guard bytes.count >= 2 else { return nil }
             return Double((UInt16(bytes[0]) << 8) | UInt16(bytes[1]))
-        case "ui32":
+        case .uint32:
             guard bytes.count >= 4 else { return nil }
             let v = (UInt32(bytes[0]) << 24) | (UInt32(bytes[1]) << 16) | (UInt32(bytes[2]) << 8) | UInt32(bytes[3])
             return Double(v)
-        case "si8 ":
+        case .int8:
             guard bytes.count >= 1 else { return nil }
             return Double(Int8(bitPattern: bytes[0]))
-        case "si16":
+        case .int16:
             guard bytes.count >= 2 else { return nil }
             let raw = (UInt16(bytes[0]) << 8) | UInt16(bytes[1])
             return Double(Int16(bitPattern: raw))
-        case "flag":
+        case .flag:
             guard bytes.count >= 1 else { return nil }
             return bytes[0] == 0 ? 0 : 1
-        default:
-            return nil
         }
     }
+}
+
+/// Raw values are exactly the 4-byte ASCII tags the SMC kernel returns
+/// alongside each reading. Padded with spaces where the type name is < 4
+/// characters (a hard kernel constraint — strings must be 4 bytes).
+enum SMCDataType: String {
+    case float32 = "flt "
+    case sp78    = "sp78"
+    case fpe2    = "fpe2"
+    case uint8   = "ui8 "
+    case uint16  = "ui16"
+    case uint32  = "ui32"
+    case int8    = "si8 "
+    case int16   = "si16"
+    case flag    = "flag"
 }

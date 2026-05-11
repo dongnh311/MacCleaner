@@ -8,17 +8,6 @@ struct BluetoothDevice: Identifiable, Sendable, Hashable {
 
     enum Kind: String, Sendable {
         case headphones, keyboard, mouse, gamepad, phone, watch, other
-        var symbol: String {
-            switch self {
-            case .headphones: return "airpodspro"
-            case .keyboard:   return "keyboard"
-            case .mouse:      return "magicmouse"
-            case .gamepad:    return "gamecontroller"
-            case .phone:      return "iphone"
-            case .watch:      return "applewatch"
-            case .other:      return "dot.radiowaves.left.and.right"
-            }
-        }
     }
 
     let id: String          // MAC address

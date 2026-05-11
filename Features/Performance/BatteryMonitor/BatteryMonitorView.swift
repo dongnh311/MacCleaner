@@ -7,7 +7,6 @@ struct BatteryMonitorView: View {
 
     @State private var stats: BatteryStats = .empty
     @State private var activity: SystemActivity?
-    @State private var refreshTimer: Timer?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -32,8 +31,7 @@ struct BatteryMonitorView: View {
                 .padding(16)
             }
         }
-        .onAppear { start() }
-        .onDisappear { stop() }
+        .refreshTask(every: 5) { await refresh() }
     }
 
     private var header: some View {
@@ -136,20 +134,6 @@ struct BatteryMonitorView: View {
         case 21...40: return .orange
         default:      return .green
         }
-    }
-
-    private func start() {
-        Task { await refresh() }
-        let timer = Timer(timeInterval: 5.0, repeats: true) { _ in
-            Task { @MainActor in await refresh() }
-        }
-        RunLoop.main.add(timer, forMode: .common)
-        refreshTimer = timer
-    }
-
-    private func stop() {
-        refreshTimer?.invalidate()
-        refreshTimer = nil
     }
 
     private func refresh() async {

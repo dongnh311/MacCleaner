@@ -6,7 +6,6 @@ struct BluetoothView: View {
     @EnvironmentObject private var container: AppContainer
 
     @State private var devices: [BluetoothDevice] = []
-    @State private var refreshTimer: Timer?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -14,8 +13,7 @@ struct BluetoothView: View {
             Divider()
             content
         }
-        .onAppear { start() }
-        .onDisappear { stop() }
+        .refreshTask(every: 5) { await refresh() }
     }
 
     private var header: some View {
@@ -60,7 +58,7 @@ struct BluetoothView: View {
             ZStack {
                 Circle().fill(device.isConnected ? Color.blue.opacity(0.18) : Color.secondary.opacity(0.12))
                     .frame(width: 40, height: 40)
-                Image(systemName: device.kind.symbol)
+                Image(systemName: symbol(for: device.kind))
                     .font(.system(size: 18))
                     .foregroundStyle(device.isConnected ? .blue : .secondary)
             }
@@ -79,12 +77,7 @@ struct BluetoothView: View {
             batteryBlock(for: device)
         }
         .padding(Spacing.md)
-        .background(Color(NSColor.controlBackgroundColor))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.primary.opacity(0.06), lineWidth: 0.5)
-        )
+        .cardStyle(radius: 8, withShadow: false)
     }
 
     @ViewBuilder
@@ -119,21 +112,21 @@ struct BluetoothView: View {
         .clipShape(Capsule())
     }
 
-    // MARK: - Lifecycle
-
-    private func start() {
-        Task { await refresh() }
-        refreshTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { _ in
-            Task { @MainActor in await refresh() }
-        }
-    }
-
-    private func stop() {
-        refreshTimer?.invalidate()
-        refreshTimer = nil
-    }
-
     private func refresh() async {
         devices = await container.bluetoothService.snapshot()
+    }
+
+    /// SF Symbol picked at the view layer — keeps the Core service free of
+    /// UI vocabulary.
+    private func symbol(for kind: BluetoothDevice.Kind) -> String {
+        switch kind {
+        case .headphones: return "airpodspro"
+        case .keyboard:   return "keyboard"
+        case .mouse:      return "magicmouse"
+        case .gamepad:    return "gamecontroller"
+        case .phone:      return "iphone"
+        case .watch:      return "applewatch"
+        case .other:      return "dot.radiowaves.left.and.right"
+        }
     }
 }

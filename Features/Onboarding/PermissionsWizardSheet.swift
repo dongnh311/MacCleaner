@@ -40,7 +40,7 @@ struct PermissionsWizardSheet: View {
                 Button("Skip for now") { dismiss() }
 
                 Button("Continue") {
-                    UserDefaults.standard.set(true, forKey: "onboarding.completed")
+                    UserDefaults.standard.set(true, forKey: DefaultsKeys.onboardingCompleted)
                     dismiss()
                 }
                 .buttonStyle(.borderedProminent)

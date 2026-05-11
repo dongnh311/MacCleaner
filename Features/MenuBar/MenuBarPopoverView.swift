@@ -44,9 +44,7 @@ struct MenuBarPopoverView: View {
             }
         }
         .padding(10)
-        .background(Color(NSColor.controlBackgroundColor))
-        .clipShape(RoundedRectangle(cornerRadius: 10))
-        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.primary.opacity(0.06), lineWidth: 0.5))
+        .cardStyle(radius: 10, withShadow: false)
     }
 
     private func processColumn(title: String, rows: [(String, String)]) -> some View {
@@ -120,12 +118,7 @@ struct MenuBarPopoverView: View {
             }
         }
         .padding(10)
-        .background(Color(NSColor.controlBackgroundColor))
-        .clipShape(RoundedRectangle(cornerRadius: 10))
-        .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .stroke(Color.primary.opacity(0.06), lineWidth: 0.5)
-        )
+        .cardStyle(radius: 10, withShadow: false)
     }
 
     // MARK: - Tile grid
@@ -170,9 +163,7 @@ struct MenuBarPopoverView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(10)
-            .background(Color(NSColor.controlBackgroundColor))
-            .clipShape(RoundedRectangle(cornerRadius: 10))
-            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.primary.opacity(0.06), lineWidth: 0.5))
+            .cardStyle(radius: 10, withShadow: false)
         }
         .buttonStyle(.plain)
     }
@@ -202,9 +193,7 @@ struct MenuBarPopoverView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(10)
-            .background(Color(NSColor.controlBackgroundColor))
-            .clipShape(RoundedRectangle(cornerRadius: 10))
-            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.primary.opacity(0.06), lineWidth: 0.5))
+            .cardStyle(radius: 10, withShadow: false)
         }
         .buttonStyle(.plain)
     }
@@ -297,9 +286,7 @@ struct MenuBarPopoverView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(10)
-            .background(Color(NSColor.controlBackgroundColor))
-            .clipShape(RoundedRectangle(cornerRadius: 10))
-            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.primary.opacity(0.06), lineWidth: 0.5))
+            .cardStyle(radius: 10, withShadow: false)
         }
         .buttonStyle(.plain)
     }
@@ -345,9 +332,7 @@ struct MenuBarPopoverView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(10)
-            .background(Color(NSColor.controlBackgroundColor))
-            .clipShape(RoundedRectangle(cornerRadius: 10))
-            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.primary.opacity(0.06), lineWidth: 0.5))
+            .cardStyle(radius: 10, withShadow: false)
         }
         .buttonStyle(.plain)
     }
@@ -376,9 +361,7 @@ struct MenuBarPopoverView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(10)
-            .background(Color(NSColor.controlBackgroundColor))
-            .clipShape(RoundedRectangle(cornerRadius: 10))
-            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.primary.opacity(0.06), lineWidth: 0.5))
+            .cardStyle(radius: 10, withShadow: false)
         }
         .buttonStyle(.plain)
     }
@@ -482,8 +465,6 @@ private struct Tile: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(10)
-        .background(Color(NSColor.controlBackgroundColor))
-        .clipShape(RoundedRectangle(cornerRadius: 10))
-        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.primary.opacity(0.06), lineWidth: 0.5))
+        .cardStyle(radius: 10, withShadow: false)
     }
 }

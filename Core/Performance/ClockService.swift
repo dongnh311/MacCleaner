@@ -14,14 +14,11 @@ final class ClockService: ObservableObject {
     }
 
     @Published var use24Hour: Bool {
-        didSet { UserDefaults.standard.set(use24Hour, forKey: Self.use24Key) }
+        didSet { UserDefaults.standard.set(use24Hour, forKey: DefaultsKeys.clockUse24Hour) }
     }
 
-    private static let storageKey = "ClockService.timezones.v1"
-    private static let use24Key = "ClockService.use24Hour"
-
     private init() {
-        if let data = UserDefaults.standard.data(forKey: Self.storageKey),
+        if let data = UserDefaults.standard.data(forKey: DefaultsKeys.clockTimezones),
            let stored = try? JSONDecoder().decode([String].self, from: data) {
             self.timezones = stored
         } else {
@@ -35,7 +32,7 @@ final class ClockService: ObservableObject {
                 "Europe/London"
             ].uniqued()
         }
-        self.use24Hour = UserDefaults.standard.object(forKey: Self.use24Key) as? Bool ?? true
+        self.use24Hour = UserDefaults.standard.object(forKey: DefaultsKeys.clockUse24Hour) as? Bool ?? true
     }
 
     func add(_ identifier: String) {
@@ -54,7 +51,7 @@ final class ClockService: ObservableObject {
 
     private func persist() {
         if let data = try? JSONEncoder().encode(timezones) {
-            UserDefaults.standard.set(data, forKey: Self.storageKey)
+            UserDefaults.standard.set(data, forKey: DefaultsKeys.clockTimezones)
         }
     }
 }

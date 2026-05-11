@@ -84,10 +84,8 @@ final class MenuBarConfig: ObservableObject {
         didSet { persist() }
     }
 
-    private static let storageKey = "MenuBarConfig.enabledMetrics.v1"
-
     private init() {
-        if let data = UserDefaults.standard.data(forKey: Self.storageKey),
+        if let data = UserDefaults.standard.data(forKey: DefaultsKeys.menuBarEnabledMetrics),
            let stored = try? JSONDecoder().decode([MenuBarMetric].self, from: data) {
             self.enabledMetrics = stored
         } else {
@@ -122,7 +120,7 @@ final class MenuBarConfig: ObservableObject {
 
     private func persist() {
         if let data = try? JSONEncoder().encode(enabledMetrics) {
-            UserDefaults.standard.set(data, forKey: Self.storageKey)
+            UserDefaults.standard.set(data, forKey: DefaultsKeys.menuBarEnabledMetrics)
         }
     }
 }

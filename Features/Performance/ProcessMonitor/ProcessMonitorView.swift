@@ -8,7 +8,6 @@ struct ProcessMonitorView: View {
     @State private var processes: [ProcessSnapshot] = []
     @State private var search: String = ""
     @State private var sortOrder: [KeyPathComparator<ProcessSnapshot>] = [.init(\.cpuPercent, order: .reverse)]
-    @State private var refreshTimer: Timer?
     @State private var killingPIDs = Set<Int32>()
 
     private var filtered: [ProcessSnapshot] {
@@ -35,8 +34,7 @@ struct ProcessMonitorView: View {
             Divider()
             footer
         }
-        .onAppear { startTimer() }
-        .onDisappear { stopTimer() }
+        .refreshTask(every: 2) { await refresh() }
     }
 
     private var header: some View {
@@ -109,20 +107,6 @@ struct ProcessMonitorView: View {
         }
         .padding(.horizontal, 16).padding(.vertical, 6)
         .background(.regularMaterial)
-    }
-
-    private func startTimer() {
-        Task { await refresh() }
-        let timer = Timer(timeInterval: 2.0, repeats: true) { _ in
-            Task { @MainActor in await refresh() }
-        }
-        RunLoop.main.add(timer, forMode: .common)
-        refreshTimer = timer
-    }
-
-    private func stopTimer() {
-        refreshTimer?.invalidate()
-        refreshTimer = nil
     }
 
     private func refresh() async {

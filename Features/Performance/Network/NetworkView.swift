@@ -8,7 +8,6 @@ struct NetworkView: View {
     @State private var interfaces: [NetworkInterfaceInfo] = []
     @State private var publicIP: PublicIPSnapshot?
     @State private var publicIPEnabled: Bool = PublicIPService.isEnabled
-    @State private var refreshTimer: Timer?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -23,8 +22,7 @@ struct NetworkView: View {
                 .padding(Spacing.lg)
             }
         }
-        .onAppear { start() }
-        .onDisappear { stop() }
+        .refreshTask(every: 2) { await refresh() }
     }
 
     private var header: some View {
@@ -181,20 +179,6 @@ struct NetworkView: View {
             Text(value).font(.system(.caption, design: .monospaced)).foregroundStyle(.secondary).textSelection(.enabled)
         }
         .padding(.horizontal, 8).padding(.vertical, 4)
-    }
-
-    // MARK: - Lifecycle
-
-    private func start() {
-        Task { await refresh() }
-        refreshTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { _ in
-            Task { @MainActor in await refresh() }
-        }
-    }
-
-    private func stop() {
-        refreshTimer?.invalidate()
-        refreshTimer = nil
     }
 
     private func refresh() async {

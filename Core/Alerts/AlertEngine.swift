@@ -11,11 +11,12 @@ final class AlertEngine: ObservableObject {
 
     static let shared = AlertEngine()
 
-    private static let enabledKey = "Alerts.enabled.v1"
-    private static let perRuleKeyPrefix = "Alerts.rule."
-
     @Published private(set) var hasNotificationAuthorization: Bool = false
-    @Published var lastFiredAt: [String: Date] = [:]
+    /// Last time each rule actually fired. Read by Settings to show
+    /// "fired X ago" — Settings isn't open during the 99% of alert fires,
+    /// so the @Published cascade is wasted work on every status tick. Plain
+    /// dictionary; the next Settings re-render picks up the freshest value.
+    var lastFiredAt: [String: Date] = [:]
 
     private var states: [String: AlertState] = [:]
     /// In-memory cooldown tracker: rule.id → next-allowed timestamp.
@@ -30,12 +31,12 @@ final class AlertEngine: ObservableObject {
     /// Master switch — when off, the evaluator skips everything. Persisted
     /// so users keep their pref between launches.
     var isEnabled: Bool {
-        get { UserDefaults.standard.bool(forKey: Self.enabledKey) }
-        set { UserDefaults.standard.set(newValue, forKey: Self.enabledKey) }
+        get { UserDefaults.standard.bool(forKey: DefaultsKeys.alertsEnabled) }
+        set { UserDefaults.standard.set(newValue, forKey: DefaultsKeys.alertsEnabled) }
     }
 
     func isRuleEnabled(_ id: String) -> Bool {
-        let key = Self.perRuleKeyPrefix + id
+        let key = DefaultsKeys.alertsRulePrefix + id
         // Default ON for every builtin so a fresh user gets useful alerts
         // immediately after they grant notification permission.
         if UserDefaults.standard.object(forKey: key) == nil { return true }
@@ -43,7 +44,7 @@ final class AlertEngine: ObservableObject {
     }
 
     func setRule(_ id: String, enabled: Bool) {
-        UserDefaults.standard.set(enabled, forKey: Self.perRuleKeyPrefix + id)
+        UserDefaults.standard.set(enabled, forKey: DefaultsKeys.alertsRulePrefix + id)
     }
 
     // MARK: - Authorization

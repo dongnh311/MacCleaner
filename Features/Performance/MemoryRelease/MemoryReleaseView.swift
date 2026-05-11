@@ -7,7 +7,6 @@ struct MemoryReleaseView: View {
     @EnvironmentObject private var container: AppContainer
 
     @State private var stats: MemoryStats?
-    @State private var refreshTimer: Timer?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -26,8 +25,7 @@ struct MemoryReleaseView: View {
                 }
             }
         }
-        .onAppear { start() }
-        .onDisappear { stop() }
+        .refreshTask(every: 1.5) { await refresh() }
     }
 
     private var header: some View {
@@ -137,20 +135,6 @@ struct MemoryReleaseView: View {
     private func ratio(_ part: Int64, total: Int64) -> Double {
         guard total > 0 else { return 0 }
         return Double(part) / Double(total)
-    }
-
-    private func start() {
-        Task { await refresh() }
-        let timer = Timer(timeInterval: 1.5, repeats: true) { _ in
-            Task { @MainActor in await refresh() }
-        }
-        RunLoop.main.add(timer, forMode: .common)
-        refreshTimer = timer
-    }
-
-    private func stop() {
-        refreshTimer?.invalidate()
-        refreshTimer = nil
     }
 
     private func refresh() async {
