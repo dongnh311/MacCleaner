@@ -61,14 +61,19 @@ struct MenuBarStatusLabel: View {
         return String(format: "%3d%%", v)
     }
 
-    /// 5-char compact rate: "  0K", " 47K", "999K", "1.2M", "999M".
-    /// Tradeoff: less precision for half the menu-bar real estate.
+    /// 5-char compact rate: "   0K", " 47K", " 999K", " 1.0M", " 100M".
+    /// Every branch returns exactly 5 chars — MenuBarExtra recomputes the
+    /// status-item width on title change, and a shrinking width (kb hits
+    /// 1000 → `"1.0M"` was 4 chars) made the whole strip flicker out for
+    /// a moment as macOS re-laid out the menu bar.
     private func padRate(_ bytes: UInt64) -> String {
         let v = Double(bytes)
         if v < 1024 { return "   0K" }
         let kb = v / 1024
         if kb < 1000 { return String(format: "%4.0fK", kb) }
         let mb = kb / 1024
-        return mb < 10 ? String(format: "%.1fM", mb) : String(format: "%4.0fM", min(9999, mb))
+        return mb < 10
+            ? String(format: "%4.1fM", mb)
+            : String(format: "%4.0fM", min(9999, mb))
     }
 }
