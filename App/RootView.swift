@@ -5,7 +5,7 @@ struct RootView: View {
     @EnvironmentObject private var container: AppContainer
     @State private var selection: SidebarItem? = .smartCare
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
-    @State private var showInspector: Bool = true
+    @AppStorage(DefaultsKeys.recentActivityVisible) private var showInspector: Bool = false
     @State private var showOnboarding = !UserDefaults.standard.bool(forKey: DefaultsKeys.onboardingCompleted)
 
     var body: some View {
@@ -177,6 +177,8 @@ struct RootView: View {
             DiskMonitorView()
         case .clock:
             ClockView()
+        case .paint:
+            PaintView()
         case .malware:
             MalwareView()
         case .privacy:

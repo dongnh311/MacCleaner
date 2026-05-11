@@ -28,4 +28,11 @@ enum DefaultsKeys {
 
     /// Opt-in public-IP lookup. Off by default for privacy.
     static let publicIPEnabled = "PublicIPService.enabled"
+
+    /// Recent Activity inspector pane visibility. Closed by default —
+    /// users open it on demand via the toolbar button.
+    static let recentActivityVisible = "RecentActivity.visible.v1"
+
+    /// Paint right-side panel (Layers + History) visibility.
+    static let paintPanelVisible = "Paint.panelVisible.v1"
 }

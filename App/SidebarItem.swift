@@ -41,6 +41,7 @@ enum SidebarItem: String, CaseIterable, Hashable, Identifiable {
     case quarantine
     case myTools
     case clock
+    case paint
 
     var id: String { rawValue }
 
@@ -52,7 +53,7 @@ enum SidebarItem: String, CaseIterable, Hashable, Identifiable {
         case .maintenance, .loginItems, .processMonitor, .memory, .battery, .sensors, .network, .bluetooth, .diskMonitor: return .performance
         case .uninstaller, .updater: return .applications
         case .spaceLens, .largeOldFiles, .duplicates, .similarPhotos: return .files
-        case .shredder, .quarantine, .myTools, .clock: return .tools
+        case .shredder, .quarantine, .myTools, .clock, .paint: return .tools
         }
     }
 
@@ -87,6 +88,7 @@ enum SidebarItem: String, CaseIterable, Hashable, Identifiable {
         case .quarantine: return "Quarantine"
         case .myTools: return "My Tools"
         case .clock: return "Clock"
+        case .paint: return "Paint"
         }
     }
 
@@ -121,6 +123,7 @@ enum SidebarItem: String, CaseIterable, Hashable, Identifiable {
         case .quarantine: return "archivebox"
         case .myTools: return "star"
         case .clock: return "clock"
+        case .paint: return "paintbrush.pointed"
         }
     }
 
