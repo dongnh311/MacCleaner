@@ -22,6 +22,16 @@ final class CleanProgressTracker: ObservableObject {
     @Published private(set) var total: Int = 0
     @Published private(set) var currentName: String = ""
 
+    /// Accumulated ticks since the last publish — a 10K-item delete
+    /// otherwise fires 10K SwiftUI invalidations because every @Published
+    /// write triggers a view recompute. We coalesce to ~10 Hz by holding
+    /// the running count here and flushing only when the throttle window
+    /// elapses (or on finish() so the final state is always correct).
+    private var pendingCount: Int = 0
+    private var pendingName: String = ""
+    private var lastPublishAt: Date = .distantPast
+    private let throttleInterval: TimeInterval = 0.1
+
     var fraction: Double {
         guard total > 0 else { return 0 }
         return min(1.0, Double(current) / Double(total))
@@ -36,20 +46,35 @@ final class CleanProgressTracker: ObservableObject {
         self.total = max(0, total)
         self.current = 0
         self.currentName = ""
+        self.pendingCount = 0
+        self.pendingName = ""
+        self.lastPublishAt = .distantPast
         self.isActive = total > 0
     }
 
     func tick(url: URL) {
         if total > 0 {
-            current = min(total, current + 1)
+            pendingCount = min(total, pendingCount + 1)
         } else {
-            current += 1
+            pendingCount += 1
         }
-        currentName = url.lastPathComponent
+        pendingName = url.lastPathComponent
+
+        let now = Date()
+        if now.timeIntervalSince(lastPublishAt) >= throttleInterval {
+            flush(at: now)
+        }
     }
 
     func finish() {
+        flush(at: Date())
         isActive = false
+    }
+
+    private func flush(at now: Date) {
+        if current != pendingCount { current = pendingCount }
+        if currentName != pendingName { currentName = pendingName }
+        lastPublishAt = now
     }
 
     /// Returns a Sendable callback safe to pass into actor-isolated services.
