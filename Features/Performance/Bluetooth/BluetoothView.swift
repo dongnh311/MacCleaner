@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 @MainActor
 struct BluetoothView: View {
@@ -22,10 +23,26 @@ struct BluetoothView: View {
             title: "Bluetooth",
             subtitle: "Paired devices, battery levels"
         ) {
+            Button { openKeyboardSettings() } label: {
+                Label("Keyboard Settings…", systemImage: "keyboard")
+            }
+            .help("Open System Settings → Keyboard to remap modifier keys")
+
             Button { Task { await refresh() } } label: {
                 Label("Refresh", systemImage: "arrow.clockwise")
             }
         }
+    }
+
+    /// Two URLs because the prefs-pane bundle ID changed in macOS 13;
+    /// no deep link to the Modifier Keys sheet exists.
+    private static let keyboardSettingsURLs: [URL] = [
+        URL(string: "x-apple.systempreferences:com.apple.Keyboard-Settings.extension")!,
+        URL(string: "x-apple.systempreferences:com.apple.preference.keyboard")!
+    ]
+
+    private func openKeyboardSettings() {
+        for url in Self.keyboardSettingsURLs where NSWorkspace.shared.open(url) { return }
     }
 
     @ViewBuilder

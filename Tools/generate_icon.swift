@@ -23,30 +23,13 @@ func renderIcon(size pixelSize: Int) -> Data {
     ctx.setShouldAntialias(true)
     ctx.interpolationQuality = .high
 
-    // Rounded-square clip
-    let cornerRadius = s * 0.225
-    let rect = CGRect(x: 0, y: 0, width: s, height: s)
-    let clipPath = CGPath(roundedRect: rect, cornerWidth: cornerRadius, cornerHeight: cornerRadius, transform: nil)
-    ctx.addPath(clipPath); ctx.clip()
-
-    // White-tile background à la MS Office app icons — subtle vertical
-    // gradient from pure white at top to faint cool-grey at bottom so
-    // the squircle has a hint of depth without a hard border.
-    let bgColors = [
-        CGColor(red: 1.00, green: 1.00, blue: 1.00, alpha: 1.0),
-        CGColor(red: 0.93, green: 0.95, blue: 0.98, alpha: 1.0)
-    ]
-    let bgGradient = CGGradient(colorsSpace: cs, colors: bgColors as CFArray, locations: [0, 1])!
-    ctx.drawLinearGradient(bgGradient, start: CGPoint(x: 0, y: s), end: CGPoint(x: 0, y: 0), options: [])
-
-    // Center sparkle glyph rendered as a four-pointed star + small accents.
-    // Sized to match the visual weight of MS Office / Apple stock app icons
-    // (their glyphs occupy ~70% of the canvas — anything smaller and the
-    // icon looks visibly less "filled" in the Dock).
+    // Transparent canvas: no tile, no clip — the sparkle glyph alone is the
+    // icon, like Trash/Finder content. Glyph is scaled up to fill the canvas
+    // since there's no tile providing visual weight.
     let cx = s * 0.5
     let cy = s * 0.5
-    let bigR = s * 0.22   // outer radius of main star — main glyph sized
-    let bigInner = s * 0.055 // smaller than Office apps so sparkle reads as a logo accent
+    let bigR = s * 0.40
+    let bigInner = s * 0.10
 
     func drawStar(centerX: CGFloat, centerY: CGFloat, outerR: CGFloat, innerR: CGFloat, color: CGColor) {
         let path = CGMutablePath()
@@ -95,9 +78,9 @@ func renderIcon(size pixelSize: Int) -> Data {
 
     // Accent stars in the same brand colour but at lower opacity so the
     // central glyph stays the focal point.
-    drawStar(centerX: cx + s * 0.20, centerY: cy + s * 0.19, outerR: s * 0.07, innerR: s * 0.017,
+    drawStar(centerX: cx + s * 0.36, centerY: cy + s * 0.34, outerR: s * 0.11, innerR: s * 0.027,
              color: CGColor(red: 0.30, green: 0.45, blue: 0.96, alpha: 0.85))
-    drawStar(centerX: cx - s * 0.22, centerY: cy - s * 0.17, outerR: s * 0.055, innerR: s * 0.014,
+    drawStar(centerX: cx - s * 0.38, centerY: cy - s * 0.30, outerR: s * 0.09, innerR: s * 0.022,
              color: CGColor(red: 0.30, green: 0.45, blue: 0.96, alpha: 0.65))
 
     // Convert to PNG
