@@ -112,7 +112,7 @@ struct RootView: View {
     private var moduleContent: some View {
         switch selection {
         case .smartCare:
-            SmartCareView(onNavigate: { selection = $0 })
+            SmartCareView()
         case .dashboard:
             DashboardView()
         case .quickClean:

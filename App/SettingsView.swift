@@ -14,6 +14,8 @@ struct SettingsView: View {
                 .tabItem { Label("Alerts", systemImage: "bell.badge") }
             QuarantineSettings()
                 .tabItem { Label("Quarantine", systemImage: "tray.full") }
+            ProtectionSettings()
+                .tabItem { Label("Protection", systemImage: "lock.shield") }
             AboutSettings()
                 .tabItem { Label("About", systemImage: "info.circle") }
         }
@@ -298,6 +300,163 @@ private struct QuarantineSettings: View {
             return rows
         }
         sessions = prepared.sorted { $0.1 > $1.1 }
+    }
+}
+
+private struct ProtectionSettings: View {
+
+    @ObservedObject private var config = ProtectionConfig.shared
+
+    var body: some View {
+        Form {
+            Section {
+                Text("These dev tools are always protected while running — caches and tied paths are skipped automatically so a Clean can't crash the IDE or kill an emulator. Hardcoded for safety; can't be disabled.")
+                    .font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                ForEach(LiveDevTools.builtIns) { tool in
+                    HStack(alignment: .top, spacing: 8) {
+                        Image(systemName: tool.symbol)
+                            .foregroundStyle(.green)
+                            .frame(width: 18)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(tool.name).font(.system(size: 13, weight: .medium))
+                            Text(tool.hints.joined(separator: ", "))
+                                .font(.system(size: 10, design: .monospaced))
+                                .foregroundStyle(.secondary)
+                                .lineLimit(2)
+                        }
+                        Spacer()
+                        Text("Always on")
+                            .font(.system(size: 9, weight: .semibold))
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1)
+                            .background(Color.green.opacity(0.18))
+                            .foregroundStyle(.green)
+                            .clipShape(Capsule())
+                    }
+                }
+            } header: {
+                Text("Built-in protections")
+            }
+
+            Section {
+                Text("Pick apps whose ~/Library data should never be cleaned. Same effect as the built-in Android Studio / Xcode rules, but you choose the apps.")
+                    .font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if config.customApps.isEmpty {
+                    Text("No apps added yet.")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                        .padding(.vertical, 4)
+                } else {
+                    ForEach(config.customApps) { app in
+                        HStack(spacing: 8) {
+                            Image(systemName: "app.badge.shield.fill")
+                                .foregroundStyle(.blue)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(app.name).font(.system(size: 13))
+                                Text(app.bundleID)
+                                    .font(.system(size: 10, design: .monospaced))
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Button {
+                                config.removeApp(app.bundleID)
+                            } label: {
+                                Image(systemName: "trash")
+                            }
+                            .buttonStyle(.borderless)
+                            .help("Stop protecting this app")
+                        }
+                    }
+                }
+
+                HStack {
+                    Button("Add app…") { pickApp() }
+                    Spacer()
+                }
+            } header: {
+                Text("Protected apps")
+            }
+
+            Section {
+                Text("Folders / files listed here are skipped by every cleanup module — useful for documents, vault folders, or any custom dir outside the standard app locations.")
+                    .font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if config.customPaths.isEmpty {
+                    Text("No custom paths yet — built-in protections are always on.")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                        .padding(.vertical, 4)
+                } else {
+                    ForEach(config.customPaths, id: \.self) { path in
+                        HStack(spacing: 8) {
+                            Image(systemName: "lock.shield")
+                                .foregroundStyle(.green)
+                            Text(path)
+                                .font(.system(size: 12, design: .monospaced))
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                            Spacer()
+                            Button {
+                                config.removePath(path)
+                            } label: {
+                                Image(systemName: "trash")
+                            }
+                            .buttonStyle(.borderless)
+                            .help("Stop protecting this path")
+                        }
+                    }
+                }
+
+                HStack {
+                    Button("Add folder…") { pickFolder() }
+                    Button("Add file…") { pickFile() }
+                    Spacer()
+                }
+            } header: {
+                Text("Protected paths")
+            }
+        }
+        .formStyle(.grouped)
+        .padding()
+    }
+
+    private func pickApp() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.allowsMultipleSelection = false
+        panel.allowedContentTypes = [.application]
+        panel.directoryURL = URL(fileURLWithPath: "/Applications")
+        panel.message = "Choose an app whose caches and preferences should never be touched."
+        if panel.runModal() == .OK, let url = panel.url {
+            config.addApp(at: url)
+        }
+    }
+
+    private func pickFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.directoryURL = FileManager.default.homeDirectoryForCurrentUser
+        if panel.runModal() == .OK, let url = panel.url {
+            config.addPath(url.path)
+        }
+    }
+
+    private func pickFile() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.allowsMultipleSelection = false
+        panel.directoryURL = FileManager.default.homeDirectoryForCurrentUser
+        if panel.runModal() == .OK, let url = panel.url {
+            config.addPath(url.path)
+        }
     }
 }
 

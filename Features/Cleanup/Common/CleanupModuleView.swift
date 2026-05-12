@@ -11,11 +11,17 @@ struct CleanupModuleView<S: CleanupScanner>: View {
     @EnvironmentObject private var container: AppContainer
 
     @State private var items: [CleanableItem] = []
+    /// Precomputed grouping of `items` — category → items, subgroup
+    /// breakdown, and the sort-by-bytes category order. Rebuilt only
+    /// when `items` changes (post-scan / post-clean). Without this, the
+    /// list pane, detail pane, and `availableCategories` each triggered
+    /// a fresh `Dictionary(grouping:)` per render.
+    @State private var grouped: GroupedItems = .empty
     @State private var selectedIDs = Set<UUID>()
     @State private var phase: Phase = .idle
     @State private var lastError: String?
     @State private var lastResultMessage: String?
-    @State private var filter: ItemCategory?
+    @State private var selectedCategory: ItemCategory?
     @State private var sortOrder: SortField = .sizeDesc
     @State private var pendingConfirm: PendingConfirm?
     @State private var scanStartedAt: Date?
@@ -60,7 +66,9 @@ struct CleanupModuleView<S: CleanupScanner>: View {
                 }
             }
             content
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .animation(.smooth(duration: 0.2), value: phase)
         .task { restoreFromCacheIfAvailable() }
     }
@@ -69,11 +77,17 @@ struct CleanupModuleView<S: CleanupScanner>: View {
         // Already have results in this view's state — keep them.
         guard items.isEmpty, phase == .idle else { return }
         guard let cached = container.cleanupResultsCache.get(scannerID: scanner.id) else { return }
-        items = cached.items
+        setItems(cached.items)
         scanStartedAt = cached.scannedAt
+        selectedCategory = grouped.sortedCategories.first
         phase = .scanned
         let elapsed = Int(Date().timeIntervalSince(cached.scannedAt))
         lastResultMessage = "Restored \(cached.items.count) items from previous scan (\(elapsed)s ago)"
+    }
+
+    private func setItems(_ newItems: [CleanableItem]) {
+        items = newItems
+        grouped = GroupedItems(items: newItems)
     }
 
     @ViewBuilder
@@ -126,12 +140,17 @@ struct CleanupModuleView<S: CleanupScanner>: View {
             heroZone
             Divider()
             if !items.isEmpty {
-                toolbar
-                Divider()
-                resultList
+                HSplitView {
+                    categoryListPane
+                        .frame(minWidth: 220, idealWidth: 260, maxWidth: 340)
+                        .background(Color.secondary.opacity(0.04))
+                    categoryDetailPane
+                        .frame(minWidth: 360)
+                }
                 Divider()
             } else {
                 emptyResults
+                    .frame(maxHeight: .infinity)
             }
             if let pendingConfirm {
                 confirmBar(pendingConfirm)
@@ -141,86 +160,149 @@ struct CleanupModuleView<S: CleanupScanner>: View {
             CleanProgressFooter(tracker: progress)
             actionBar
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var heroZone: some View {
-        VStack(spacing: 8) {
+        // Compact one-line hero — left-aligned size + count, right-aligned
+        // status messages. Vertical real estate is precious; the old
+        // centred 40pt block ate ~120px and pushed the action bar off
+        // screen on shorter displays.
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
             if items.isEmpty && phase == .scanned {
                 Image(systemName: "checkmark.seal.fill")
-                    .font(.system(size: 40))
+                    .font(.system(size: 18))
                     .foregroundStyle(.green)
-                Text("Nothing to clean")
-                    .font(.title2.weight(.semibold))
+                Text("Nothing to clean").font(.title3.weight(.semibold))
             } else {
                 Text(totalScannedSize.formattedBytes)
-                    .font(.system(size: 40, weight: .semibold, design: .monospaced))
-                Text("\(items.count) item\(items.count == 1 ? "" : "s") found")
+                    .font(.system(size: 22, weight: .semibold, design: .monospaced))
+                Text("\(items.count) item\(items.count == 1 ? "" : "s")")
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
+            Spacer()
             if let lastResultMessage {
-                Text(lastResultMessage)
-                    .font(.caption)
-                    .foregroundStyle(.green)
-                    .padding(.top, 4)
+                Text(lastResultMessage).font(.caption).foregroundStyle(.green)
             }
             if let lastError {
-                Text(lastError)
-                    .font(.caption)
-                    .foregroundStyle(.red)
-                    .padding(.top, 4)
+                Text(lastError).font(.caption).foregroundStyle(.red)
             }
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
     }
 
-    private var toolbar: some View {
-        HStack(spacing: 12) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 6) {
-                    FilterPill(label: "All", count: items.count, isSelected: filter == nil) {
-                        filter = nil
-                    }
-                    ForEach(availableCategories, id: \.0) { (cat, count) in
-                        FilterPill(label: cat.displayName, count: count, isSelected: filter == cat) {
-                            filter = cat
-                        }
-                    }
-                }
-            }
-            Spacer(minLength: 8)
-            Picker("", selection: $sortOrder) {
-                ForEach(SortField.allCases) { field in
-                    Text(field.label).tag(field)
-                }
-            }
-            .labelsHidden()
-            .pickerStyle(.menu)
-            .frame(maxWidth: 140)
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
-    }
+    // MARK: - Master / detail
 
-    private var resultList: some View {
-        List {
-            ForEach(filteredSortedItems) { item in
-                CleanupItemRow(
-                    item: item,
-                    isOn: Binding(
-                        get: { selectedIDs.contains(item.id) },
-                        set: { newValue in
-                            if newValue { selectedIDs.insert(item.id) }
-                            else { selectedIDs.remove(item.id) }
-                        }
+    private var categoryListPane: some View {
+        ScrollView {
+            LazyVStack(spacing: 0) {
+                ForEach(grouped.sortedCategories, id: \.self) { cat in
+                    CategoryRow(
+                        category: cat,
+                        items: grouped.byCategory[cat] ?? [],
+                        selectedIDs: selectedIDs,
+                        isActive: selectedCategory == cat,
+                        onTap: { selectedCategory = cat },
+                        onToggle: { toggleCategory(cat) }
                     )
-                ) {
-                    NSWorkspace.shared.activateFileViewerSelecting([item.url])
+                    Divider()
                 }
             }
         }
-        .listStyle(.inset(alternatesRowBackgrounds: true))
+    }
+
+    @ViewBuilder
+    private var categoryDetailPane: some View {
+        if let cat = selectedCategory, let categoryItems = grouped.byCategory[cat], !categoryItems.isEmpty {
+            VStack(alignment: .leading, spacing: 0) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(cat.displayName).font(.title2.weight(.semibold))
+                    Text(cat.rationale)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 14)
+                .padding(.bottom, 10)
+
+                HStack(spacing: 8) {
+                    Text("\(categoryItems.count) item\(categoryItems.count == 1 ? "" : "s")")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Picker("", selection: $sortOrder) {
+                        ForEach(SortField.allCases) { Text($0.label).tag($0) }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .frame(maxWidth: 140)
+                    Button(allSelectedInCategory(cat) ? "Deselect" : "Select all") {
+                        toggleCategory(cat)
+                    }
+                    .controlSize(.small)
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 6)
+                Divider()
+
+                List {
+                    ForEach(grouped.subgroupsByCategory[cat] ?? []) { group in
+                        Section(header: subgroupHeader(group)) {
+                            ForEach(sorted(group.items)) { item in
+                                CleanupItemRow(
+                                    item: item,
+                                    isOn: Binding(
+                                        get: { selectedIDs.contains(item.id) },
+                                        set: { newValue in
+                                            if newValue { selectedIDs.insert(item.id) }
+                                            else { selectedIDs.remove(item.id) }
+                                        }
+                                    )
+                                ) {
+                                    NSWorkspace.shared.activateFileViewerSelecting([item.url])
+                                }
+                            }
+                        }
+                    }
+                }
+                .listStyle(.inset(alternatesRowBackgrounds: true))
+            }
+        } else {
+            VStack(spacing: 10) {
+                Spacer()
+                Image(systemName: "sidebar.left")
+                    .font(.system(size: 36))
+                    .foregroundStyle(.tertiary)
+                Text("Select a category on the left to see details")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                Spacer()
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+
+    private func subgroupHeader(_ group: CategorySubgroup) -> some View {
+        HStack(spacing: 6) {
+            Toggle("", isOn: Binding(
+                get: { group.items.allSatisfy { selectedIDs.contains($0.id) } },
+                set: { newValue in
+                    if newValue { group.items.forEach { selectedIDs.insert($0.id) } }
+                    else { group.items.forEach { selectedIDs.remove($0.id) } }
+                }
+            )).labelsHidden()
+            Text(group.title)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.primary)
+            Spacer()
+            Text(group.totalSize.formattedBytes)
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundStyle(.secondary)
+        }
     }
 
     private var emptyResults: some View {
@@ -265,7 +347,7 @@ struct CleanupModuleView<S: CleanupScanner>: View {
                 .foregroundStyle(.secondary)
             Spacer()
             Button("Select All") {
-                selectedIDs = Set(filteredSortedItems.map { $0.id })
+                selectedIDs = Set(items.map(\.id))
             }
             .disabled(items.isEmpty || phase == .cleaning)
             .keyboardShortcut("a")
@@ -302,30 +384,28 @@ struct CleanupModuleView<S: CleanupScanner>: View {
         items.filter { selectedIDs.contains($0.id) }.reduce(0) { $0 + $1.size }
     }
 
-    private var filteredSortedItems: [CleanableItem] {
-        let filtered: [CleanableItem]
-        if let filter {
-            filtered = items.filter { $0.category == filter }
-        } else {
-            filtered = items
-        }
+    private func sorted(_ slice: [CleanableItem]) -> [CleanableItem] {
         switch sortOrder {
-        case .sizeDesc:     return filtered.sorted { $0.size > $1.size }
-        case .sizeAsc:      return filtered.sorted { $0.size < $1.size }
-        case .modifiedDesc: return filtered.sorted { ($0.lastModified ?? .distantPast) > ($1.lastModified ?? .distantPast) }
-        case .modifiedAsc:  return filtered.sorted { ($0.lastModified ?? .distantPast) < ($1.lastModified ?? .distantPast) }
-        case .name:         return filtered.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+        case .sizeDesc:     return slice.sorted { $0.size > $1.size }
+        case .sizeAsc:      return slice.sorted { $0.size < $1.size }
+        case .modifiedDesc: return slice.sorted { ($0.lastModified ?? .distantPast) > ($1.lastModified ?? .distantPast) }
+        case .modifiedAsc:  return slice.sorted { ($0.lastModified ?? .distantPast) < ($1.lastModified ?? .distantPast) }
+        case .name:         return slice.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
         }
     }
 
-    private var availableCategories: [(ItemCategory, Int)] {
-        var counts: [ItemCategory: Int] = [:]
-        for item in items {
-            counts[item.category, default: 0] += 1
+    private func toggleCategory(_ category: ItemCategory) {
+        let ids = (grouped.byCategory[category] ?? []).map(\.id)
+        if ids.allSatisfy({ selectedIDs.contains($0) }) {
+            ids.forEach { selectedIDs.remove($0) }
+        } else {
+            ids.forEach { selectedIDs.insert($0) }
         }
-        return ItemCategory.allCases.compactMap { cat in
-            counts[cat].map { (cat, $0) }
-        }
+    }
+
+    private func allSelectedInCategory(_ category: ItemCategory) -> Bool {
+        let ids = (grouped.byCategory[category] ?? []).map(\.id)
+        return !ids.isEmpty && ids.allSatisfy { selectedIDs.contains($0) }
     }
 
     // MARK: - Actions
@@ -333,15 +413,18 @@ struct CleanupModuleView<S: CleanupScanner>: View {
     private func scan() {
         Task { @MainActor in
             phase = .scanning
-            items = []
+            setItems([])
             selectedIDs = []
             lastError = nil
             lastResultMessage = nil
             scanStartedAt = Date()
             do {
                 let result = try await scanner.scan()
-                items = result
+                setItems(result)
                 detectedTools = LiveDevTools.detect()
+                // Auto-select the biggest category so the detail pane
+                // isn't empty on first reveal.
+                selectedCategory = grouped.sortedCategories.first
                 phase = .scanned
                 container.cleanupResultsCache.set(scannerID: scanner.id, items: result)
                 let totalSize = result.reduce(Int64(0)) { $0 + $1.size }
@@ -382,16 +465,19 @@ struct CleanupModuleView<S: CleanupScanner>: View {
             let result = await scanner.clean(toClean, onProgress: progress.makeHandler())
             progress.finish()
             let removedIDs = Set(result.removed.map { $0.id })
-            items.removeAll { removedIDs.contains($0.id) }
+            setItems(items.filter { !removedIDs.contains($0.id) })
             selectedIDs.removeAll()
             phase = .scanned
             container.cleanupResultsCache.update(scannerID: scanner.id, items: items)
-            lastResultMessage = "Freed \(result.totalBytesFreed.formattedBytes) (\(result.removed.count) item\(result.removed.count == 1 ? "" : "s"))"
-            if !result.failed.isEmpty {
-                lastError = "\(result.failed.count) item\(result.failed.count == 1 ? "" : "s") failed to clean"
-            } else {
-                lastError = nil
-            }
+            let protected = result.failed.filter { $0.reason.hasPrefix("Refused:") }.count
+            let errors = result.failed.count - protected
+            lastResultMessage = QuickCleanView.formatResult(
+                freed: result.totalBytesFreed,
+                removed: result.removed.count,
+                protected: protected,
+                errors: errors
+            )
+            lastError = errors > 0 ? "\(errors) item\(errors == 1 ? "" : "s") couldn't be removed (likely permission)" : nil
 
             do {
                 try await container.db.recordScan(
@@ -412,27 +498,116 @@ struct CleanupModuleView<S: CleanupScanner>: View {
 
 // MARK: - Sub-components
 
-struct FilterPill: View {
-    let label: String
-    let count: Int
-    let isSelected: Bool
-    let action: () -> Void
+/// Precomputed grouping for the master/detail panes. Recomputed only
+/// when the items array changes — avoids re-grouping per render.
+struct GroupedItems {
+    let byCategory: [ItemCategory: [CleanableItem]]
+    /// Categories present in the current scan, ordered by total bytes
+    /// descending — biggest space-eaters at the top of the master pane.
+    let sortedCategories: [ItemCategory]
+    let subgroupsByCategory: [ItemCategory: [CategorySubgroup]]
+
+    static let empty = GroupedItems(byCategory: [:], sortedCategories: [], subgroupsByCategory: [:])
+
+    init(items: [CleanableItem]) {
+        let by = Dictionary(grouping: items) { $0.category }
+        let sortedByBytes = by
+            .map { (cat: $0.key, bytes: $0.value.reduce(Int64(0)) { $0 + $1.size }) }
+            .sorted { $0.bytes > $1.bytes }
+            .map(\.cat)
+        let subgroups = by.mapValues { catItems in
+            Dictionary(grouping: catItems) { $0.ruleID ?? "_other" }
+                .map { CategorySubgroup(id: $0.key, items: $0.value) }
+                .sorted { $0.totalSize > $1.totalSize }
+        }
+        self.byCategory = by
+        self.sortedCategories = sortedByBytes
+        self.subgroupsByCategory = subgroups
+    }
+
+    private init(byCategory: [ItemCategory: [CleanableItem]],
+                 sortedCategories: [ItemCategory],
+                 subgroupsByCategory: [ItemCategory: [CategorySubgroup]]) {
+        self.byCategory = byCategory
+        self.sortedCategories = sortedCategories
+        self.subgroupsByCategory = subgroupsByCategory
+    }
+}
+
+/// One entry of vector geometry inside a category — a rule's worth of
+/// files, identified by `ruleID`. Pretty-printed name comes from the
+/// ruleID slug.
+struct CategorySubgroup: Identifiable {
+    let id: String
+    let items: [CleanableItem]
+    var totalSize: Int64 { items.reduce(0) { $0 + $1.size } }
+    var title: String {
+        if id == "_other" { return "Other" }
+        return id
+            .replacingOccurrences(of: "_", with: " ")
+            .replacingOccurrences(of: "-", with: " ")
+            .split(separator: " ")
+            .map { $0.prefix(1).uppercased() + $0.dropFirst() }
+            .joined(separator: " ")
+    }
+}
+
+/// Master-pane row: category icon, name, "X of Y selected" badge, and a
+/// total-size readout. Tapping anywhere on the row activates it; the
+/// checkbox toggles every item in the category at once.
+struct CategoryRow: View {
+    let category: ItemCategory
+    let items: [CleanableItem]
+    let selectedIDs: Set<UUID>
+    let isActive: Bool
+    let onTap: () -> Void
+    let onToggle: () -> Void
+
+    private var totalSize: Int64 { items.reduce(0) { $0 + $1.size } }
+    private var selectedCount: Int { items.filter { selectedIDs.contains($0.id) }.count }
+    private var allSelected: Bool {
+        !items.isEmpty && selectedCount == items.count
+    }
+    private var partiallySelected: Bool {
+        selectedCount > 0 && selectedCount < items.count
+    }
 
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: 4) {
-                Text(label).font(.system(size: 11, weight: .medium))
-                Text("\(count)")
-                    .font(.system(size: 10, design: .monospaced))
-                    .opacity(0.7)
+        HStack(spacing: 10) {
+            Toggle("", isOn: Binding(
+                get: { allSelected },
+                set: { _ in onToggle() }
+            ))
+            .labelsHidden()
+            // Visual cue for partial selection — SwiftUI Toggle has no
+            // native indeterminate state on macOS, so we tint the
+            // surrounding area.
+            .background(partiallySelected ? Color.accentColor.opacity(0.18) : .clear)
+            .clipShape(RoundedRectangle(cornerRadius: 4))
+
+            Image(systemName: category.systemImage)
+                .foregroundStyle(.tint)
+                .frame(width: 18)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(category.displayName)
+                    .font(.system(size: 13, weight: .medium))
+                Text(selectedCount > 0
+                     ? "\(selectedCount) of \(items.count) selected"
+                     : "\(items.count) item\(items.count == 1 ? "" : "s")")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 4)
-            .background(isSelected ? Color.accentColor : Color(NSColor.controlBackgroundColor))
-            .foregroundStyle(isSelected ? Color.white : Color.primary)
-            .clipShape(Capsule())
+            Spacer(minLength: 4)
+            Text(totalSize.formattedBytes)
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundStyle(.secondary)
         }
-        .buttonStyle(.plain)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(isActive ? Color.accentColor.opacity(0.15) : .clear)
+        .contentShape(Rectangle())
+        .onTapGesture(perform: onTap)
     }
 }
 

@@ -99,7 +99,7 @@ struct CleanProgressFooter: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.small)
-                    Text("Deleting")
+                    Text("Processing")
                         .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(.secondary)
                     Text(tracker.currentName.isEmpty ? "—" : tracker.currentName)

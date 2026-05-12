@@ -69,4 +69,33 @@ enum ItemCategory: String, Codable, Sendable, Hashable, CaseIterable {
         case .other:                   return "questionmark.folder"
         }
     }
+
+    /// Long-form description shown in the cleanup detail panel — explains
+    /// what this category contains and why it's safe (or not) to remove.
+    var rationale: String {
+        switch self {
+        case .userCache:
+            return "App caches under ~/Library/Caches. Apps regenerate them on next launch — safe to clean when the app isn't running."
+        case .systemCache:
+            return "OS-level caches under /Library/Caches and /System/Library/Caches. macOS rebuilds them on demand."
+        case .userLog:
+            return "Per-user log files in ~/Library/Logs. Useful for debugging recent issues, otherwise typically stale and bulky."
+        case .systemLog:
+            return "System-wide log files. macOS rotates them automatically; old archives rarely matter."
+        case .xcodeJunk:
+            return "Xcode derived data, build intermediates, archives, and Simulator runtimes. Xcode rebuilds on next compile; runtimes re-download from Apple if needed."
+        case .devToolCache:
+            return "Caches from CocoaPods, npm/yarn/pnpm, Gradle, Maven, SPM, etc. Each tool re-downloads on next install."
+        case .downloadedFile:
+            return "Files in ~/Downloads. Often safe to remove but may contain user documents — review before deleting."
+        case .trash:
+            return "Items in Trash bins (user + per-volume). Cleaning is a permanent delete."
+        case .mailAttachment:
+            return "Cached Mail attachments. Mail re-downloads from the IMAP/Exchange server on demand."
+        case .photoCache:
+            return "Photo library derivatives and thumbnail caches. Photos.app rebuilds on next launch."
+        case .other:
+            return "Miscellaneous cleanable items that don't fit the other categories."
+        }
+    }
 }

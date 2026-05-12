@@ -95,25 +95,62 @@ actor TrashBinScanner: CleanupScanner {
     }
 
     func clean(_ items: [CleanableItem], onProgress: CleanProgressHandler? = nil) async -> CleanResult {
-        let urls = items.map { $0.url }
-        let result = await quarantine.directDelete(urls, onProgress: onProgress)
-        let succeededSet = Set(result.succeeded.map { $0.path })
-        let failedMap: [String: String] = Dictionary(uniqueKeysWithValues: result.failed.map { ($0.0.path, $0.1) })
-
         var removed: [CleanableItem] = []
         var failed: [CleanFailure] = []
         var bytesFreed: Int64 = 0
 
         for item in items {
-            if succeededSet.contains(item.url.path) {
+            // WhitelistGuard still applies — sanity check before deleting.
+            // Trash items are user-owned but we still don't want to delete
+            // a still-running app's executable that's been moved there.
+            if WhitelistGuard.isProtected(item.url) {
+                failed.append(CleanFailure(item: item, reason: "Refused: protected path"))
+                onProgress?(item.url)
+                continue
+            }
+
+            if await Self.deleteTrashItem(item.url) {
                 removed.append(item)
                 bytesFreed += item.size
-            } else if let reason = failedMap[item.url.path] {
-                failed.append(CleanFailure(item: item, reason: reason))
+                Log.scanner.info("trash deleted \(item.url.path, privacy: .public)")
+            } else {
+                failed.append(CleanFailure(
+                    item: item,
+                    reason: "Couldn't remove — likely needs admin permission"
+                ))
+                Log.scanner.error("trash delete failed for \(item.url.path, privacy: .public)")
             }
+            onProgress?(item.url)
         }
 
         Log.scanner.info("trash clean: removed=\(removed.count) failed=\(failed.count) bytesFreed=\(bytesFreed)")
         return CleanResult(removed: removed, failed: failed, totalBytesFreed: bytesFreed)
+    }
+
+    /// FileManager.removeItem chokes on items the system sandboxes (apps
+    /// moved from /Applications to Trash carry SIP-like quarantine bits
+    /// that block Foundation's path). Fall back to /bin/rm -rf which runs
+    /// in the user's shell context and clears most stuck items.
+    private static func deleteTrashItem(_ url: URL) async -> Bool {
+        do {
+            try FileManager.default.removeItem(at: url)
+            return true
+        } catch {
+            Log.scanner.warning("FileManager removeItem failed for \(url.path, privacy: .public) — falling back to /bin/rm: \(error.localizedDescription, privacy: .public)")
+        }
+        return await Task.detached(priority: .userInitiated) {
+            let proc = Process()
+            proc.executableURL = URL(fileURLWithPath: "/bin/rm")
+            proc.arguments = ["-rf", url.path]
+            proc.standardOutput = Pipe()
+            proc.standardError = Pipe()
+            do {
+                try proc.run()
+                proc.waitUntilExit()
+                return proc.terminationStatus == 0
+            } catch {
+                return false
+            }
+        }.value
     }
 }

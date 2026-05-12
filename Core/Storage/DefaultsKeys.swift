@@ -44,4 +44,13 @@ enum DefaultsKeys {
 
     /// Paint right-side panel (Layers + History) visibility.
     static let paintPanelVisible = "Paint.panelVisible.v1"
+
+    /// User-added folders / files that the cleanup engine must never
+    /// touch. v1 = JSON-encoded array of absolute paths.
+    static let whitelistCustomPaths = "Whitelist.customPaths.v1"
+
+    /// User-added apps whose standard Library/* paths are always
+    /// protected regardless of whether the app is running. v1 = JSON-
+    /// encoded array of `{ bundleID, name }`.
+    static let whitelistCustomApps = "Whitelist.customApps.v1"
 }

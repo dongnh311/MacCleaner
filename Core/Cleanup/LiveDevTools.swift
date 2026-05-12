@@ -14,8 +14,14 @@ struct DetectedDevTool: Identifiable, Hashable {
 
 enum LiveDevTools {
 
-    /// Static catalog: bundleID → display info shown in the banner. Mirrors
-    /// the protection set in `WhitelistGuard.appProtectedExtras`.
+    /// Public read-only list of every dev tool we know how to protect.
+    /// Used by the Settings UI to render the "always-on protections"
+    /// section so it matches the protection set in
+    /// `WhitelistGuard.appProtectedExtras` exactly.
+    static var builtIns: [DetectedDevTool] {
+        catalog.values.sorted { $0.name < $1.name }
+    }
+
     private static let catalog: [String: DetectedDevTool] = [
         "com.google.android.studio": .init(
             id: "com.google.android.studio",
@@ -79,7 +85,12 @@ enum LiveDevTools {
     /// in `WhitelistGuard.refreshLiveProcesses`; we just read its cache.
     @MainActor
     static func detect() -> [DetectedDevTool] {
-        WhitelistGuard.refreshLiveProcesses()
+        // Force a fresh `ps` here — the 30s TTL is a perf optimisation
+        // for back-to-back scan batches, but `detect()` is the call we
+        // make right before the user sees the confirm dialog (and
+        // before delete runs). A stale cache here = false negatives =
+        // protections silently skipped = killed emulators.
+        WhitelistGuard.refreshLiveProcesses(force: true)
         var tools: [DetectedDevTool] = []
         var seen = Set<String>()
         for app in NSWorkspace.shared.runningApplications {

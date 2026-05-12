@@ -113,23 +113,23 @@ extension Color {
 }
 
 extension UInt64 {
-    /// Human-friendly bytes-per-second: "0", "47K", "1.2M". Compact form,
-    /// no padding — for tile labels and inline text.
+    /// Human-friendly bytes-per-second: "0", "47K", "5M". Compact form,
+    /// no padding — for tile labels and inline text. Rounded to integer
+    /// because at glance-time decimals add noise without precision.
     var formattedRate: String {
         let v = Double(self)
         if v < 1024 { return "0" }
-        if v < 1024 * 1024 { return "\(Int(v / 1024))K" }
-        let mb = v / (1024 * 1024)
-        return mb < 10 ? String(format: "%.1fM", mb) : "\(Int(mb))M"
+        if v < 1024 * 1024 { return "\(Int((v / 1024).rounded()))K" }
+        return "\(Int((v / (1024 * 1024)).rounded()))M"
     }
 
-    /// Verbose bytes-per-second with units: "0 B/s", "47 KB/s", "1.20 MB/s".
+    /// Verbose bytes-per-second with units: "0 B/s", "47 KB/s", "5 MB/s".
     /// For full-size views where the user expects unit suffixes.
     var formattedRateVerbose: String {
         let v = Double(self)
         if v < 1024 { return "\(Int(v)) B/s" }
         if v < 1024 * 1024 { return String(format: "%.0f KB/s", v / 1024) }
-        return String(format: "%.2f MB/s", v / (1024 * 1024))
+        return String(format: "%.0f MB/s", v / (1024 * 1024))
     }
 
     /// Bytes formatted via `Int64.formattedBytes` — avoids the

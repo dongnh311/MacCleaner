@@ -1,32 +1,21 @@
 import Foundation
 
 struct SmartCareReport: Sendable {
-    let entries: [Entry]
+    let cleanupItems: [CleanableItem]
+    let trashItems: [CleanableItem]
+    let malwareItems: [ThreatItem]
+    let ramHogs: [ProcessSnapshot]
     let scannedAt: Date
 
     var totalCleanableBytes: Int64 {
-        entries.reduce(0) { $0 + ($1.totalBytes ?? 0) }
+        cleanupItems.reduce(Int64(0)) { $0 + $1.size }
+            + trashItems.reduce(Int64(0)) { $0 + $1.size }
     }
     var totalIssueCount: Int {
-        entries.reduce(0) { $0 + $1.count }
+        cleanupItems.count + trashItems.count + malwareItems.count + ramHogs.count
     }
     var hasDanger: Bool {
-        entries.contains { $0.severity == .danger }
-    }
-
-    struct Entry: Identifiable, Sendable {
-        let id: String
-        let module: SidebarItem
-        let title: String
-        let symbol: String
-        let count: Int
-        let totalBytes: Int64?
-        let severity: Severity
-        let summary: String
-
-        enum Severity: String, Sendable, Hashable {
-            case ok, review, danger
-        }
+        malwareItems.contains { $0.severity == .danger }
     }
 }
 
@@ -35,157 +24,80 @@ actor SmartCareOrchestrator {
     private let systemJunk: SystemJunkScanner
     private let trash: TrashBinScanner
     private let malware: MalwareScanner
-    private let homebrew: HomebrewUpdater
-    private let appScanner: AppScanner
-    private let sparkle: SparkleUpdater
-    private let loginItems: LoginItemsService
+    private let processes: ProcessMonitor
+
+    /// RAM threshold for the Speed pillar: surface apps holding at least
+    /// 500 MB. Below this it's not worth recommending a quit — the user
+    /// would barely notice the freed memory.
+    private static let ramHogThreshold: Int64 = 500 * 1024 * 1024
 
     init(systemJunk: SystemJunkScanner,
          trash: TrashBinScanner,
          malware: MalwareScanner,
-         homebrew: HomebrewUpdater,
-         appScanner: AppScanner,
-         sparkle: SparkleUpdater,
-         loginItems: LoginItemsService) {
+         processes: ProcessMonitor) {
         self.systemJunk = systemJunk
         self.trash = trash
         self.malware = malware
-        self.homebrew = homebrew
-        self.appScanner = appScanner
-        self.sparkle = sparkle
-        self.loginItems = loginItems
+        self.processes = processes
     }
 
     func run() async -> SmartCareReport {
         async let junkTask = (try? systemJunk.scan()) ?? []
         async let trashTask = (try? trash.scan()) ?? []
         async let malwareTask = malware.scan()
-        async let casksTask = homebrew.outdatedCasksOrEmpty()
-        async let installedTask = appScanner.scan()
-        async let agentsTask = loginItems.enumerate()
+        async let processesTask = processes.snapshot()
 
-        let junk = await junkTask
+        // Cleanup pillar mirrors Quick Clean exactly — safe items only.
+        // Review-level items live under System Junk in the sidebar; the
+        // user opens that module to handle them manually.
+        let junk = (await junkTask).filter { $0.safetyLevel == .safe }
         let trashItems = await trashTask
         let malwareItems = await malwareTask
-        let casks = await casksTask
-        let apps = await installedTask
-        let sparkleUpdates = await sparkle.checkUpdates(for: apps)
-        let agents = await agentsTask
+        let processList = await processesTask
 
-        let activeAgents = agents.filter { !$0.isDisabled && $0.scope == .userAgent }
+        let myPID = getpid()
+        let ramHogs = processList
+            .filter { $0.memoryBytes >= Self.ramHogThreshold && $0.pid != myPID }
+            .sorted { $0.memoryBytes > $1.memoryBytes }
+            .prefix(10)
+            .map { $0 }
 
-        let entries: [SmartCareReport.Entry] = [
-            buildJunkEntry(items: junk),
-            buildTrashEntry(items: trashItems),
-            buildMalwareEntry(items: malwareItems),
-            buildUpdatesEntry(casks: casks.count, sparkle: sparkleUpdates.count),
-            buildPerformanceEntry(activeUserAgents: activeAgents.count)
-        ]
-
-        let report = SmartCareReport(entries: entries, scannedAt: Date())
-        Log.scanner.info("SmartCare report: \(report.totalIssueCount) issues, \(report.totalCleanableBytes.formattedBytes) cleanable")
+        let report = SmartCareReport(
+            cleanupItems: junk,
+            trashItems: trashItems,
+            malwareItems: malwareItems,
+            ramHogs: ramHogs,
+            scannedAt: Date()
+        )
+        Log.scanner.info("SmartCare report: \(report.totalIssueCount) issues, \(report.totalCleanableBytes.formattedBytes) cleanable, \(ramHogs.count) ram hogs")
         return report
     }
 
-    /// Cleans only items marked SafetyLevel.safe across the cleanup scanners.
-    func cleanAllSafeItems(onProgress: CleanProgressHandler? = nil) async -> (CleanResult, Int) {
-        let junk = (try? await systemJunk.scan()) ?? []
-        let safe = junk.filter { $0.safetyLevel == .safe }
-        guard !safe.isEmpty else {
-            return (CleanResult(removed: [], failed: [], totalBytesFreed: 0), 0)
+    func cleanSelected(junk: [CleanableItem], trash: [CleanableItem],
+                       onProgress: CleanProgressHandler? = nil) async -> CleanResult {
+        async let junkResult = systemJunk.clean(junk, onProgress: onProgress)
+        async let trashResult = self.trash.clean(trash, onProgress: onProgress)
+        let (j, t) = await (junkResult, trashResult)
+        return CleanResult(
+            removed: j.removed + t.removed,
+            failed: j.failed + t.failed,
+            totalBytesFreed: j.totalBytesFreed + t.totalBytesFreed
+        )
+    }
+
+    func quarantineThreats(_ items: [ThreatItem],
+                           onProgress: CleanProgressHandler? = nil) async -> Int {
+        await malware.quarantineThreats(items, onProgress: onProgress)
+    }
+
+    /// Sends SIGTERM to each PID (force = false). Returns how many actually
+    /// exited. We don't escalate to SIGKILL — graceful quit lets the app
+    /// flush state; if it ignores SIGTERM the user can quit manually.
+    func quitProcesses(_ pids: [Int32]) async -> Int {
+        var quit = 0
+        for pid in pids {
+            if await processes.kill(pid: pid, force: false) { quit += 1 }
         }
-        let result = await systemJunk.clean(safe, onProgress: onProgress)
-        return (result, safe.count)
-    }
-
-    // MARK: - Builders
-
-    private func buildJunkEntry(items: [CleanableItem]) -> SmartCareReport.Entry {
-        let total = items.reduce(Int64(0)) { $0 + $1.size }
-        return .init(
-            id: "system_junk",
-            module: .systemJunk,
-            title: "System Junk",
-            symbol: "trash.circle",
-            count: items.count,
-            totalBytes: total,
-            severity: items.isEmpty ? .ok : .review,
-            summary: items.isEmpty ? "Nothing to clean" : "\(items.count) items, \(total.formattedBytes)"
-        )
-    }
-
-    private func buildTrashEntry(items: [CleanableItem]) -> SmartCareReport.Entry {
-        let total = items.reduce(Int64(0)) { $0 + $1.size }
-        return .init(
-            id: "trash",
-            module: .trashBins,
-            title: "Trash Bins",
-            symbol: "trash",
-            count: items.count,
-            totalBytes: total,
-            severity: items.isEmpty ? .ok : .review,
-            summary: items.isEmpty ? "Empty" : "\(items.count) items, \(total.formattedBytes)"
-        )
-    }
-
-    private func buildMalwareEntry(items: [ThreatItem]) -> SmartCareReport.Entry {
-        let danger = items.contains { $0.severity == .danger }
-        let warn = items.contains { $0.severity == .warn }
-        let severity: SmartCareReport.Entry.Severity = danger ? .danger : (warn ? .review : .ok)
-        let summary: String
-        if danger { summary = "Suspicious persistence detected" }
-        else if warn { summary = "\(items.filter { $0.severity == .warn }.count) items to review" }
-        else { summary = "No persistence threats" }
-        return .init(
-            id: "malware",
-            module: .malware,
-            title: "Malware",
-            symbol: "shield.lefthalf.filled",
-            count: items.count,
-            totalBytes: nil,
-            severity: severity,
-            summary: summary
-        )
-    }
-
-    private func buildUpdatesEntry(casks: Int, sparkle: Int) -> SmartCareReport.Entry {
-        let total = casks + sparkle
-        let summary: String
-        if total == 0 { summary = "All up to date" }
-        else if casks > 0 && sparkle > 0 { summary = "\(casks) casks + \(sparkle) Sparkle apps" }
-        else if casks > 0 { summary = "\(casks) Homebrew cask\(casks == 1 ? "" : "s") outdated" }
-        else { summary = "\(sparkle) Sparkle app\(sparkle == 1 ? "" : "s") outdated" }
-        return .init(
-            id: "updates",
-            module: .updater,
-            title: "Updates",
-            symbol: "arrow.triangle.2.circlepath",
-            count: total,
-            totalBytes: nil,
-            severity: total == 0 ? .ok : .review,
-            summary: summary
-        )
-    }
-
-    private func buildPerformanceEntry(activeUserAgents: Int) -> SmartCareReport.Entry {
-        .init(
-            id: "performance",
-            module: .loginItems,
-            title: "Performance",
-            symbol: "wrench.and.screwdriver",
-            count: activeUserAgents,
-            totalBytes: nil,
-            severity: activeUserAgents > 8 ? .review : .ok,
-            summary: "\(activeUserAgents) active user LaunchAgent\(activeUserAgents == 1 ? "" : "s")"
-        )
-    }
-}
-
-// MARK: - Helper
-
-extension HomebrewUpdater {
-    func outdatedCasksOrEmpty() async -> [CaskUpdate] {
-        do { return try await outdatedCasks() }
-        catch { return [] }
+        return quit
     }
 }

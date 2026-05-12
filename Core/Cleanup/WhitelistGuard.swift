@@ -44,24 +44,29 @@ enum WhitelistGuard {
     /// into memory or relies on continuously. Deleting them while the app is
     /// up risks SIGBUS / corrupted IDE state / crashed emulator.
     private static let appProtectedExtras: [String: [String]] = [
-        // Android Studio + AndroidStudio EAP variants. AS keeps state in
-        // /Google/AndroidStudio<ver>/ subfolders — we list the AS-specific
-        // path so the ancestor check in pathRelates() also protects the
-        // parent /Google directory from being wiped wholesale.
+        // Android Studio + Android Emulator. AS uses *versioned* folder
+        // names (`AndroidStudio2024.2`, `AndroidStudio2026.1`, …) so a
+        // protection on `Google/AndroidStudio` doesn't match — and
+        // `pathRelates` ancestor logic only fires when the rule scanner
+        // hits the exact `Google` parent, not a child. To be safe,
+        // protect the entire `Google` dir under each Library subtree
+        // while AS or the emulator is live. The user normally cleans
+        // these Google folders themselves; brief over-protection while
+        // the emulator runs is a fair trade for not killing it.
         "com.google.android.studio": [
             ".gradle",
             ".android",
-            "Library/Caches/Google/AndroidStudio",
-            "Library/Application Support/Google/AndroidStudio",
-            "Library/Logs/Google/AndroidStudio",
+            "Library/Caches/Google",
+            "Library/Application Support/Google",
+            "Library/Logs/Google",
             "Library/Preferences/com.google.android.studio.plist"
         ],
         "com.google.android.studio.dev": [
             ".gradle",
             ".android",
-            "Library/Caches/Google/AndroidStudio",
-            "Library/Application Support/Google/AndroidStudio",
-            "Library/Logs/Google/AndroidStudio"
+            "Library/Caches/Google",
+            "Library/Application Support/Google",
+            "Library/Logs/Google"
         ],
         // Xcode
         "com.apple.dt.Xcode": [
@@ -111,6 +116,48 @@ enum WhitelistGuard {
     /// after the next batch.
     nonisolated(unsafe) private static var lastRefreshAt: Date = .distantPast
     private static let refreshTTL: TimeInterval = 30
+
+    /// User-added protected paths + app bundle IDs loaded from
+    /// `ProtectionConfig`. Invalidated explicitly via the reload entry
+    /// points — Set replacement is not atomic in Swift, but the only
+    /// writers are main-actor isolated (refreshLiveProcesses) or
+    /// happen-before reads on the same thread (init seed).
+    nonisolated(unsafe) private static var userCustomPaths: Set<String> = []
+    nonisolated(unsafe) private static var userProtectedAppBundles: Set<String> = []
+
+    /// Precomputed `liveAppBundleIDs ∪ userProtectedAppBundles`.
+    /// `checkProtected` runs once per file during a scan (50K+ in a
+    /// fresh system); allocating the union per call burns ~1ms × N.
+    /// Rebuilt whenever either source set changes.
+    nonisolated(unsafe) private static var protectedBundlesCache: Set<String> = []
+
+    static func reloadCustomPaths() {
+        if let data = UserDefaults.standard.data(forKey: DefaultsKeys.whitelistCustomPaths),
+           let paths = try? JSONDecoder().decode([String].self, from: data) {
+            userCustomPaths = Set(paths.map { ($0 as NSString).expandingTildeInPath })
+        } else {
+            userCustomPaths = []
+        }
+    }
+
+    static func reloadCustomApps() {
+        if let data = UserDefaults.standard.data(forKey: DefaultsKeys.whitelistCustomApps),
+           let apps = try? JSONDecoder().decode([ProtectedApp].self, from: data) {
+            userProtectedAppBundles = Set(apps.map(\.bundleID))
+        } else {
+            userProtectedAppBundles = []
+        }
+        rebuildProtectedBundlesCache()
+    }
+
+    static func reloadCustomConfig() {
+        reloadCustomPaths()
+        reloadCustomApps()
+    }
+
+    private static func rebuildProtectedBundlesCache() {
+        protectedBundlesCache = liveAppBundleIDs.union(userProtectedAppBundles)
+    }
 
     /// Bundle IDs of macOS system processes that hold cache / state files
     /// open the entire time the user is logged in. Wiping these while the
@@ -205,16 +252,19 @@ enum WhitelistGuard {
             return true
         }
 
-        if !liveAppBundleIDs.isEmpty {
+        // Match bundle-ID-named files / folders under any path. Combines
+        // live-running apps (auto-protected while up) with the user's
+        // explicit always-on list — both folded into protectedBundlesCache.
+        if !protectedBundlesCache.isEmpty {
             let last = url.lastPathComponent
-            if liveAppBundleIDs.contains(last) { return true }
+            if protectedBundlesCache.contains(last) { return true }
             let strip = [".savedState", ".binarycookies", ".plist", ".sfl3", ".sfl2"]
             for s in strip where last.hasSuffix(s) {
                 let core = String(last.dropLast(s.count))
-                if liveAppBundleIDs.contains(core) { return true }
+                if protectedBundlesCache.contains(core) { return true }
             }
             for component in url.pathComponents {
-                if liveAppBundleIDs.contains(component) { return true }
+                if protectedBundlesCache.contains(component) { return true }
             }
         }
 
@@ -225,6 +275,12 @@ enum WhitelistGuard {
                 if pathRelates(path: path, to: full, allowAncestor: allowAncestorRefuse) {
                     return true
                 }
+            }
+        }
+
+        for custom in userCustomPaths {
+            if pathRelates(path: path, to: custom, allowAncestor: allowAncestorRefuse) {
+                return true
             }
         }
 
@@ -261,6 +317,11 @@ enum WhitelistGuard {
         liveAppBundleIDs = ids
         liveProcessNamesCache = names
         lastRefreshAt = Date()
+        // Refresh user-added paths from UserDefaults at the same time so
+        // clean-time protection is always in sync with the latest
+        // Settings edits without needing a separate trigger.
+        reloadCustomConfig()
+        rebuildProtectedBundlesCache()
     }
 
     /// Snapshot of currently running executable names. Reads the cache

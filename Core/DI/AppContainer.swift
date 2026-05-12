@@ -107,21 +107,11 @@ final class AppContainer: ObservableObject {
             processMonitor: processMonitor
         )
 
-        let systemJunkRef = systemJunkScanner
-        let trashRef = trashBinScanner
-        let malwareRef = malwareScanner
-        let homebrewRef = homebrewUpdater
-        let appRef = appScanner
-        let sparkleRef = sparkleUpdater
-        let loginRef = loginItems
         self.smartCareOrchestrator = SmartCareOrchestrator(
-            systemJunk: systemJunkRef,
-            trash: trashRef,
-            malware: malwareRef,
-            homebrew: homebrewRef,
-            appScanner: appRef,
-            sparkle: sparkleRef,
-            loginItems: loginRef
+            systemJunk: systemJunkScanner,
+            trash: trashBinScanner,
+            malware: malwareScanner,
+            processes: processMonitor
         )
 
         Log.app.info("AppContainer initialised")

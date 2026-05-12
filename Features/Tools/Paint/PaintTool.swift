@@ -57,4 +57,22 @@ enum PaintTool: String, CaseIterable, Identifiable, Sendable {
     var isFreehand: Bool {
         self == .pencil || self == .brush || self == .eraser
     }
+
+    /// Photoshop-style single-letter keyboard shortcut. `u` for ellipse
+    /// because `o` clashes with ⌘O (Open).
+    var shortcutKey: Character {
+        switch self {
+        case .select:     return "v"
+        case .pencil:     return "p"
+        case .brush:      return "b"
+        case .eraser:     return "e"
+        case .fill:       return "f"
+        case .eyedropper: return "i"
+        case .text:       return "t"
+        case .arrow:      return "a"
+        case .line:       return "l"
+        case .rectangle:  return "r"
+        case .ellipse:    return "u"
+        }
+    }
 }

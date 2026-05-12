@@ -289,19 +289,23 @@ struct QuickCleanView: View {
             progress.finish()
             let freed = jr.totalBytesFreed + tr.totalBytesFreed
             let removed = jr.removed.count + tr.removed.count
-            let failed = jr.failed.count + tr.failed.count
+            let allFailures = jr.failed + tr.failed
+            // Split "failed" into "refused for safety" vs real errors so
+            // the user doesn't think every protected refusal is a problem.
+            let protected = allFailures.filter { $0.reason.hasPrefix("Refused:") }.count
+            let errors = allFailures.count - protected
 
             try? await container.db.recordScan(
                 module: "QuickClean",
                 startedAt: scannedAt ?? Date().addingTimeInterval(-1),
                 finishedAt: Date(),
-                itemsScanned: removed + failed,
+                itemsScanned: removed + allFailures.count,
                 bytesTotal: freed,
                 sourcePath: nil,
-                status: failed == 0 ? "completed" : "partial"
+                status: errors == 0 ? "completed" : "partial"
             )
 
-            resultMessage = "Freed \(freed.formattedBytes) (\(removed) items)\(failed > 0 ? " — \(failed) failed" : "")"
+            resultMessage = Self.formatResult(freed: freed, removed: removed, protected: protected, errors: errors)
             phase = .done
 
             // Auto-rescan to refresh sizes — but stay on the .done screen visually.
@@ -342,6 +346,21 @@ struct QuickCleanView: View {
         return Group.ID.allCases.map { gid in
             Group(id: gid, items: byID[gid] ?? [])
         }
+    }
+
+    /// Splits the post-clean tally into removed / protected / errors so
+    /// the user sees that "33 failed" is really "33 refused for safety"
+    /// — the cleaner doing its job, not a problem to fix.
+    static func formatResult(freed: Int64, removed: Int, protected: Int, errors: Int) -> String {
+        var parts: [String] = ["Freed \(freed.formattedBytes)"]
+        parts.append("\(removed) item\(removed == 1 ? "" : "s") removed")
+        if protected > 0 {
+            parts.append("\(protected) skipped for safety")
+        }
+        if errors > 0 {
+            parts.append("\(errors) error\(errors == 1 ? "" : "s")")
+        }
+        return parts.joined(separator: " · ")
     }
 }
 

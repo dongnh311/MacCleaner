@@ -49,7 +49,7 @@ actor QuarantineService {
 
     /// Moves URLs into a timestamped quarantine session. Used for non-cache items.
     func quarantine(_ urls: [URL], onProgress: CleanProgressHandler? = nil) async -> MoveResult {
-        await MainActor.run { WhitelistGuard.refreshLiveProcesses() }
+        await MainActor.run { WhitelistGuard.refreshLiveProcesses(force: true) }
         let sessionID = timestampString()
         let session = root.appendingPathComponent(sessionID, isDirectory: true)
         do {
@@ -94,7 +94,7 @@ actor QuarantineService {
     /// app URL is a direct .app child of one of those folders before bypassing.
     /// Leftovers still go through the normal guard.
     func quarantineApp(_ appURL: URL, leftovers: [URL], onProgress: CleanProgressHandler? = nil) async -> MoveResult {
-        await MainActor.run { WhitelistGuard.refreshLiveProcesses() }
+        await MainActor.run { WhitelistGuard.refreshLiveProcesses(force: true) }
         guard Self.isAppBundleDirectChild(appURL) else {
             Log.scanner.fault("quarantineApp refused — not an app bundle: \(appURL.path, privacy: .public)")
             return MoveResult(succeeded: [:], failed: [(appURL, "Not an app bundle in /Applications")])
@@ -167,7 +167,7 @@ actor QuarantineService {
 
     /// Permanently removes URLs. Used only for safe cache items where the OS regenerates content.
     func directDelete(_ urls: [URL], onProgress: CleanProgressHandler? = nil) async -> DeleteResult {
-        await MainActor.run { WhitelistGuard.refreshLiveProcesses() }
+        await MainActor.run { WhitelistGuard.refreshLiveProcesses(force: true) }
         var succeeded: [URL] = []
         var failed: [(URL, String)] = []
 

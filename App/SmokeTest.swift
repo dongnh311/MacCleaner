@@ -89,7 +89,7 @@ enum SmokeTest {
         }
 
         await report("HomebrewUpdater.outdatedCasks") {
-            let casks = await container.homebrewUpdater.outdatedCasksOrEmpty()
+            let casks = (try? await container.homebrewUpdater.outdatedCasks()) ?? []
             return "\(casks.count) outdated casks"
         }
 
@@ -153,7 +153,7 @@ enum SmokeTest {
 
         await report("SmartCareOrchestrator.run") {
             let report = await container.smartCareOrchestrator.run()
-            return "\(report.entries.count) entries, \(report.totalCleanableBytes.formattedBytes) cleanable"
+            return "\(report.totalIssueCount) issues, \(report.totalCleanableBytes.formattedBytes) cleanable"
         }
 
         let exitStatus: Int32

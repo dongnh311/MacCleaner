@@ -68,10 +68,12 @@ struct PaintView: View {
             Button { state.undo() } label: {
                 Label("Undo", systemImage: "arrow.uturn.backward")
             }
+            .keyboardShortcut("z", modifiers: .command)
             .disabled(!state.canUndo)
             Button { state.redo() } label: {
                 Label("Redo", systemImage: "arrow.uturn.forward")
             }
+            .keyboardShortcut("z", modifiers: [.command, .shift])
             .disabled(!state.canRedo)
             Button(role: .destructive) { state.clear() } label: {
                 Label("Clear", systemImage: "trash")
@@ -82,8 +84,33 @@ struct PaintView: View {
                 Image(systemName: panelVisible ? "sidebar.right" : "sidebar.right")
                     .symbolVariant(panelVisible ? .fill : .none)
             }
+            .keyboardShortcut("\\", modifiers: [.command, .option])
             .help(panelVisible ? "Hide Layers / History panel" : "Show Layers / History panel")
         }
+        .background(toolHotkeys)
+    }
+
+    /// Tool letter shortcuts in a hidden background. Letter mapping
+    /// lives on `PaintTool.shortcutKey` so adding a tool only requires
+    /// one edit there.
+    private var toolHotkeys: some View {
+        Group {
+            ForEach(PaintTool.allCases) { tool in
+                hiddenShortcut(KeyEquivalent(tool.shortcutKey)) { state.tool = tool }
+            }
+            hiddenShortcut("=", modifiers: .command) { state.zoomIn() }
+            hiddenShortcut("-", modifiers: .command) { state.zoomOut() }
+            hiddenShortcut("0", modifiers: .command) { state.zoomToActual() }
+        }
+    }
+
+    private func hiddenShortcut(_ key: KeyEquivalent,
+                                modifiers: EventModifiers = [],
+                                action: @escaping () -> Void) -> some View {
+        Button("", action: action)
+            .keyboardShortcut(key, modifiers: modifiers)
+            .opacity(0)
+            .frame(width: 0, height: 0)
     }
 
     private var zoomControls: some View {
