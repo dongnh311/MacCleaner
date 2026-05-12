@@ -7,6 +7,18 @@ struct MemoryReleaseView: View {
     @EnvironmentObject private var container: AppContainer
 
     @State private var stats: MemoryStats?
+    @State private var pressureHistory: [Double] = []
+    @State private var topProcesses: [ProcessSnapshot] = []
+    @State private var sortKey: SortKey = .memory
+    @State private var isPaused = false
+
+    /// Performance section accent (#64D2FF) — matches `SidebarItem.section.performance.accent`.
+    private static let accent = Color(red: 0.392, green: 0.824, blue: 1.0)
+    /// 48 samples × 1.5s refresh = ~72s of pressure history. Enough to
+    /// see a recent spike, short enough that the line stays readable.
+    private static let historyCapacity = 48
+
+    enum SortKey: Hashable { case memory, cpu }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -14,129 +26,276 @@ struct MemoryReleaseView: View {
             Divider()
             ScrollView {
                 if let stats {
-                    VStack(spacing: 16) {
-                        gauge(stats: stats)
-                        breakdown(stats: stats)
-                        actions
+                    VStack(spacing: Spacing.md) {
+                        pressureCard(stats)
+                        tileGrid(stats)
+                        allocationBar(stats)
+                        topProcessesSection
                     }
-                    .padding(16)
+                    .padding(Spacing.lg)
                 } else {
-                    ProgressView().frame(maxWidth: .infinity, minHeight: 200)
+                    ProgressView()
+                        .frame(maxWidth: .infinity, minHeight: 200)
                 }
             }
         }
         .refreshTask(every: 1.5) { await refresh() }
     }
 
+    // MARK: - Header
+
     private var header: some View {
         ModuleHeader(
             icon: "memorychip",
             title: "Memory",
-            subtitle: "Live RAM breakdown via host_statistics64"
-        )
-    }
+            subtitle: subtitleText,
+            accent: Self.accent
+        ) {
+            Button {
+                isPaused.toggle()
+            } label: {
+                Label(isPaused ? "Resume" : "Pause",
+                      systemImage: isPaused ? "play.fill" : "pause.fill")
+            }
+            .help(isPaused ? "Resume live updates" : "Pause live updates")
 
-    private func gauge(stats: MemoryStats) -> some View {
-        VStack(spacing: 8) {
-            HStack(alignment: .firstTextBaseline) {
-                Text("\(stats.used.formattedBytes)").font(.system(size: 36, weight: .semibold, design: .monospaced))
-                Text("of \(stats.total.formattedBytes) used")
-                    .font(.callout).foregroundStyle(.secondary)
+            Button {
+                let url = URL(fileURLWithPath: "/System/Applications/Utilities/Activity Monitor.app")
+                NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration())
+            } label: {
+                Label("Activity Monitor", systemImage: "arrow.up.right.square")
             }
-            HStack(spacing: 0) {
-                segment(width: ratio(stats.wired, total: stats.total), color: .red)
-                segment(width: ratio(stats.active, total: stats.total), color: .orange)
-                segment(width: ratio(stats.compressed, total: stats.total), color: .purple)
-                segment(width: ratio(stats.inactive, total: stats.total), color: .yellow)
-                segment(width: ratio(stats.free, total: stats.total), color: .green)
-            }
-            .frame(height: 16)
-            .clipShape(RoundedRectangle(cornerRadius: 4))
-            HStack(spacing: 12) {
-                legend(color: .red, label: "Wired", value: stats.wired)
-                legend(color: .orange, label: "Active", value: stats.active)
-                legend(color: .purple, label: "Compressed", value: stats.compressed)
-                legend(color: .yellow, label: "Inactive", value: stats.inactive)
-                legend(color: .green, label: "Free", value: stats.free)
-            }
-            .font(.caption)
+            .buttonStyle(.borderedProminent)
+            .help("macOS auto-manages memory pressure; `sudo purge` requires admin")
         }
-        .padding(16)
-        .background(Color(NSColor.controlBackgroundColor))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 
-    private func breakdown(stats: MemoryStats) -> some View {
+    private var subtitleText: String {
+        guard let stats else { return "Live RAM breakdown via host_statistics64" }
+        return "\(stats.total.formattedBytes) unified · \(isPaused ? "paused" : "live")"
+    }
+
+    // MARK: - Pressure card (sparkline)
+
+    private func pressureCard(_ stats: MemoryStats) -> some View {
+        let (tint, label) = pressureLabel(stats.pressurePercent)
+        return VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .firstTextBaseline, spacing: Spacing.md) {
+                SectionHeading("Pressure")
+                Spacer()
+                Text(label)
+                    .font(.system(size: 12))
+                    .foregroundStyle(tint)
+            }
+            SparklineView(values: pressureHistory, tint: tint, fill: true, maxValue: 100)
+                .frame(height: 60)
+        }
+        .padding(Spacing.lg)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .cardStyle(withShadow: false)
+    }
+
+    private func pressureLabel(_ pct: Double) -> (Color, String) {
+        if pct < 60 { return (.green, "Green — plenty available") }
+        if pct < 85 { return (.orange, "Yellow — apps may swap to disk") }
+        return (.red, "Red — heavy pressure")
+    }
+
+    // MARK: - Tile grid
+
+    private func tileGrid(_ stats: MemoryStats) -> some View {
+        LazyVGrid(
+            columns: Array(repeating: GridItem(.flexible(), spacing: Spacing.md), count: 5),
+            spacing: Spacing.md
+        ) {
+            memoryTile("App memory", value: stats.appMemory, swatch: AllocationColor.app)
+            memoryTile("Wired", value: stats.wired, swatch: AllocationColor.wired)
+            memoryTile("Compressed", value: stats.compressed, swatch: AllocationColor.compressed)
+            memoryTile("Cached files", value: stats.inactive, swatch: AllocationColor.cached)
+            memoryTile("Free", value: stats.free, swatch: AllocationColor.free)
+        }
+    }
+
+    private func memoryTile(_ label: String, value: Int64, swatch: Color) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 6) {
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(swatch)
+                    .frame(width: 8, height: 8)
+                Text(label)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+            }
+            Text(value.formattedBytes)
+                .font(.system(size: 17, weight: .medium, design: .monospaced))
+                .monospacedDigit()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(Spacing.md)
+        .cardStyle(withShadow: false)
+    }
+
+    // MARK: - Allocation bar
+
+    private func allocationBar(_ stats: MemoryStats) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("DETAILS").font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
+            SectionHeading("Allocation · \(stats.total.formattedBytes) total")
+            GeometryReader { geo in
+                let w = geo.size.width
+                HStack(spacing: 0) {
+                    AllocationColor.app.frame(width: w * ratio(stats.appMemory, stats.total))
+                    AllocationColor.wired.frame(width: w * ratio(stats.wired, stats.total))
+                    AllocationColor.compressed.frame(width: w * ratio(stats.compressed, stats.total))
+                    AllocationColor.cached.frame(width: w * ratio(stats.inactive, stats.total))
+                    Color.white.opacity(0.10)
+                }
+            }
+            .frame(height: 22)
+            .clipShape(RoundedRectangle(cornerRadius: Radius.sm))
+        }
+    }
+
+    // MARK: - Top processes
+
+    private var topProcessesSection: some View {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            HStack(spacing: Spacing.sm) {
+                SectionHeading("Top processes", count: min(topProcesses.count, 10))
+                Spacer()
+                chip("By memory", active: sortKey == .memory) { sortKey = .memory }
+                chip("By CPU", active: sortKey == .cpu) { sortKey = .cpu }
+            }
             VStack(spacing: 0) {
-                row(label: "Total RAM", value: stats.total.formattedBytes)
+                processHeaderRow
                 Divider()
-                row(label: "Used (Wired + Active + Compressed)", value: (stats.wired + stats.active + stats.compressed).formattedBytes)
-                Divider()
-                row(label: "Pressure", value: String(format: "%.1f%%", stats.pressurePercent))
-                Divider()
-                row(label: "App memory", value: stats.appMemory.formattedBytes)
-                Divider()
-                row(label: "Page size", value: "\(stats.pageSize) bytes")
-            }
-            .padding(8)
-            .background(Color(NSColor.controlBackgroundColor))
-            .clipShape(RoundedRectangle(cornerRadius: 6))
-        }
-    }
-
-    private var actions: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("FREEING MEMORY").font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
-            VStack(alignment: .leading, spacing: 8) {
-                Text("macOS auto-manages memory pressure. Manually purging is rarely needed and requires admin (`sudo purge`). Use the Maintenance tab to copy that command into Terminal.")
-                    .font(.caption).foregroundStyle(.secondary)
-                HStack {
-                    Button {
-                        let url = URL(fileURLWithPath: "/System/Applications/Utilities/Activity Monitor.app")
-                        NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration())
-                    } label: {
-                        Label("Open Activity Monitor", systemImage: "arrow.up.right.square")
+                ForEach(sortedProcesses) { proc in
+                    processRow(proc)
+                    if proc.id != sortedProcesses.last?.id {
+                        Divider()
                     }
                 }
             }
-            .padding(12)
-            .background(Color.blue.opacity(0.06))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .cardStyle(withShadow: false)
         }
     }
 
-    private func segment(width: Double, color: Color) -> some View {
-        GeometryReader { proxy in
-            color.frame(width: proxy.size.width * width)
-        }.frame(width: nil)
-            .layoutPriority(width)
-    }
-
-    private func legend(color: Color, label: String, value: Int64) -> some View {
-        HStack(spacing: 4) {
-            Circle().fill(color).frame(width: 8, height: 8)
-            Text(label).font(.caption)
-            Text(value.formattedBytes).font(.system(.caption2, design: .monospaced)).foregroundStyle(.secondary)
+    private var sortedProcesses: [ProcessSnapshot] {
+        let sorted: [ProcessSnapshot]
+        switch sortKey {
+        case .memory: sorted = topProcesses.sorted { $0.memoryBytes > $1.memoryBytes }
+        case .cpu:    sorted = topProcesses.sorted { $0.cpuPercent > $1.cpuPercent }
         }
+        return Array(sorted.prefix(10))
     }
 
-    private func row(label: String, value: String) -> some View {
-        HStack {
-            Text(label).font(.caption)
-            Spacer()
-            Text(value).font(.system(.caption, design: .monospaced)).foregroundStyle(.secondary)
+    private var processHeaderRow: some View {
+        HStack(spacing: Spacing.md) {
+            Color.clear.frame(width: 14)
+            Text("PROCESS")
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Text("PID")
+                .frame(width: 70, alignment: .trailing)
+            Text("CPU")
+                .frame(width: 70, alignment: .trailing)
+            Text("MEMORY")
+                .frame(width: 90, alignment: .trailing)
+            Color.clear.frame(width: 20)
         }
-        .padding(.horizontal, 8).padding(.vertical, 6)
+        .font(.system(size: 11, weight: .semibold))
+        .foregroundStyle(.tertiary)
+        .tracking(0.5)
+        .padding(.horizontal, Spacing.md)
+        .padding(.vertical, Spacing.sm)
     }
 
-    private func ratio(_ part: Int64, total: Int64) -> Double {
-        guard total > 0 else { return 0 }
-        return Double(part) / Double(total)
+    private func processRow(_ p: ProcessSnapshot) -> some View {
+        HStack(spacing: Spacing.md) {
+            Image(systemName: "cpu")
+                .font(.system(size: 11))
+                .foregroundStyle(Self.accent)
+                .frame(width: 14)
+            Text(p.name)
+                .font(.system(size: 13))
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Text("\(p.pid)")
+                .font(.system(size: 12, design: .monospaced))
+                .monospacedDigit()
+                .foregroundStyle(.secondary)
+                .frame(width: 70, alignment: .trailing)
+            Text(String(format: "%.0f%%", p.cpuPercent))
+                .font(.system(size: 12, design: .monospaced))
+                .monospacedDigit()
+                .foregroundStyle(p.cpuPercent > 60 ? .orange : .secondary)
+                .frame(width: 70, alignment: .trailing)
+            Text(p.memoryBytes.formattedBytes)
+                .font(.system(size: 12, design: .monospaced))
+                .monospacedDigit()
+                .frame(width: 90, alignment: .trailing)
+            KillProcessButton {
+                Task { _ = await container.processMonitor.kill(pid: p.pid, force: false) }
+            }
+            .frame(width: 20)
+        }
+        .padding(.horizontal, Spacing.md)
+        .padding(.vertical, Spacing.sm)
     }
+
+    private func chip(_ label: String, active: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(label)
+                .font(.system(size: 11, weight: .medium))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .background(active ? Self.accent.opacity(0.22) : Color.white.opacity(0.04))
+                .foregroundStyle(active ? Self.accent : .secondary)
+                .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Refresh
 
     private func refresh() async {
-        stats = await container.memoryService.snapshot()
+        guard !isPaused else { return }
+        let s = await container.memoryService.snapshot()
+        stats = s
+        pressureHistory.append(s.pressurePercent)
+        if pressureHistory.count > Self.historyCapacity {
+            pressureHistory.removeFirst(pressureHistory.count - Self.historyCapacity)
+        }
+        topProcesses = await container.processMonitor.snapshot()
     }
+
+    private func ratio(_ part: Int64, _ total: Int64) -> CGFloat {
+        guard total > 0 else { return 0 }
+        return CGFloat(part) / CGFloat(total)
+    }
+}
+
+/// SIGTERM trigger — destructive red on hover so the kill intent reads
+/// without making the row chrome too busy at rest.
+private struct KillProcessButton: View {
+    let action: () -> Void
+    var body: some View {
+        HoverIconButton(
+            icon: "xmark.circle.fill",
+            size: 14,
+            idleColor: .secondary,
+            hoverColor: .red,
+            help: "Quit (SIGTERM)",
+            action: action
+        )
+    }
+}
+
+/// Per-allocation palette from the design system. Shared between the
+/// 5-tile grid and the segmented allocation bar.
+private enum AllocationColor {
+    static let app        = Color(red: 0.353, green: 0.690, blue: 1.000)   // #5AB0FF
+    static let wired      = Color(red: 1.000, green: 0.624, blue: 0.039)   // #FF9F0A
+    static let compressed = Color(red: 1.000, green: 0.271, blue: 0.227)   // #FF453A
+    static let cached     = Color(red: 0.188, green: 0.820, blue: 0.345)   // #30D158
+    static let free       = Color(red: 0.557, green: 0.553, blue: 0.937)   // #8E8DEF
 }

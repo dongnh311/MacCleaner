@@ -38,7 +38,8 @@ struct BatteryMonitorView: View {
         ModuleHeader(
             icon: stats.isCharging ? "battery.100.bolt" : batterySymbol,
             title: "Battery",
-            subtitle: "Live IOKit power source data"
+            subtitle: "Live IOKit power source data",
+            accent: .teal
         )
     }
 
@@ -57,17 +58,18 @@ struct BatteryMonitorView: View {
             HStack {
                 if let mins = stats.timeToEmptyMinutes {
                     Text("\(mins / 60)h \(mins % 60)m to empty")
-                        .font(.caption).foregroundStyle(.secondary)
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(.secondary)
                 } else if let mins = stats.timeToFullMinutes {
                     Text("\(mins / 60)h \(mins % 60)m to full")
-                        .font(.caption).foregroundStyle(.secondary)
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(.secondary)
                 }
                 Spacer()
             }
         }
         .padding(16)
-        .background(Color(NSColor.controlBackgroundColor))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .cardStyle(radius: 8, withShadow: false)
     }
 
     private var details: some View {
@@ -84,8 +86,7 @@ struct BatteryMonitorView: View {
                 Divider()
                 row("Power adapter", stats.isPowerAdapterConnected ? "Connected" : "Disconnected")
             }
-            .background(Color(NSColor.controlBackgroundColor))
-            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .cardStyle(radius: Radius.md, withShadow: false)
         }
     }
 
@@ -122,8 +123,7 @@ struct BatteryMonitorView: View {
                         row("Sleeps (last 24h)", "\(count)")
                     }
                 }
-                .background(Color(NSColor.controlBackgroundColor))
-                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .cardStyle(radius: Radius.md, withShadow: false)
             }
         }
     }

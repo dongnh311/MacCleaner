@@ -72,7 +72,8 @@ struct LoginItemsView: View {
         ModuleHeader(
             icon: "power",
             title: "Login Items",
-            subtitle: "LaunchAgents and Daemons that auto-start"
+            subtitle: "LaunchAgents and Daemons that auto-start",
+            accent: .teal
         ) {
             Button {
                 Task { await reload() }
@@ -94,8 +95,7 @@ struct LoginItemsView: View {
                 TextField("Search…", text: $search).textFieldStyle(.plain)
             }
             .padding(.horizontal, 8).padding(.vertical, 4)
-            .background(Color(NSColor.controlBackgroundColor))
-            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .cardStyle(radius: Radius.md, withShadow: false)
             Spacer()
             Text("\(filtered.count) of \(items.count)").font(.caption).foregroundStyle(.secondary)
         }

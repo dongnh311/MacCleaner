@@ -21,7 +21,8 @@ struct SensorsView: View {
         ModuleHeader(
             icon: "thermometer.medium",
             title: "Sensors",
-            subtitle: "Live SMC readings — temperatures, fans, power, voltage"
+            subtitle: "Live SMC readings — temperatures, fans, power, voltage",
+            accent: .teal
         ) {
             Button { Task { await sampleNow() } } label: {
                 Label("Refresh", systemImage: "arrow.clockwise")
@@ -115,15 +116,10 @@ struct SensorsView: View {
 
     private func color(for reading: SensorReading) -> Color {
         switch reading.descriptor.category {
-        case .temperature:
-            switch reading.value {
-            case ..<60:   return .green
-            case ..<80:   return .orange
-            default:      return .red
-            }
-        case .fan:        return reading.value > 0 ? .blue : .secondary
-        case .power:      return reading.value > 50 ? .orange : .primary
-        default:          return .primary
+        case .temperature: return Color.temperatureTint(reading.value)
+        case .fan:         return reading.value > 0 ? .blue : .secondary
+        case .power:       return reading.value > 50 ? .orange : .primary
+        default:           return .primary
         }
     }
 

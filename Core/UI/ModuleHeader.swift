@@ -94,6 +94,125 @@ struct StatusBadge: View {
     }
 }
 
+/// Borderless icon button with idle/hover tints. Lives behind
+/// `InfoButton`, `CloseButton`, and `KillProcessButton` so they share one
+/// implementation and the @State hover plumbing isn't copy-pasted.
+struct HoverIconButton: View {
+    let icon: String
+    var size: CGFloat = 16
+    let idleColor: Color
+    let hoverColor: Color
+    var help: String? = nil
+    var keyboardShortcut: KeyboardShortcut? = nil
+    let action: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        let button = Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: size, weight: .regular))
+                .foregroundStyle(hovering ? hoverColor : idleColor)
+                .symbolRenderingMode(.hierarchical)
+        }
+        .buttonStyle(.borderless)
+        .onHover { hovering = $0 }
+
+        return Group {
+            if let shortcut = keyboardShortcut {
+                button.keyboardShortcut(shortcut)
+            } else {
+                button
+            }
+        }
+        .help(help ?? "")
+    }
+}
+
+/// "i" trailing affordance for list rows that have a detail popup.
+struct InfoButton: View {
+    let action: () -> Void
+    var body: some View {
+        HoverIconButton(
+            icon: "info.circle.fill",
+            idleColor: .secondary,
+            hoverColor: .accentColor,
+            help: "View details",
+            action: action
+        )
+    }
+}
+
+/// Close affordance for sheets / popups. Bound to ⎋ via `.cancelAction`.
+struct CloseButton: View {
+    let action: () -> Void
+    var body: some View {
+        HoverIconButton(
+            icon: "xmark.circle.fill",
+            size: 18,
+            idleColor: .secondary,
+            hoverColor: .primary,
+            help: "Close (⎋)",
+            keyboardShortcut: .cancelAction,
+            action: action
+        )
+    }
+}
+
+/// Standard chrome for an in-app detail popup: title + subtitle + close
+/// button + scrollable content area + `PopupBackground` so it blends
+/// with the rest of the app's chrome. Used for "click row → show me
+/// what's inside" sheets across Cleanup / Malware / Performance.
+struct DetailSheet<Content: View>: View {
+    let title: String
+    let subtitle: String?
+    let accent: Color
+    let onClose: () -> Void
+    let width: CGFloat
+    let height: CGFloat
+    @ViewBuilder let content: () -> Content
+
+    init(title: String,
+         subtitle: String? = nil,
+         accent: Color = .accentColor,
+         width: CGFloat = 560,
+         height: CGFloat = 480,
+         onClose: @escaping () -> Void,
+         @ViewBuilder content: @escaping () -> Content) {
+        self.title = title
+        self.subtitle = subtitle
+        self.accent = accent
+        self.width = width
+        self.height = height
+        self.onClose = onClose
+        self.content = content
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(alignment: .top, spacing: Spacing.md) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title).font(.titleMedium)
+                    if let subtitle {
+                        Text(subtitle)
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Spacer()
+                CloseButton(action: onClose)
+            }
+            .padding(.horizontal, Spacing.lg)
+            .padding(.top, Spacing.lg)
+            .padding(.bottom, Spacing.md)
+            Divider()
+            content()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .frame(width: width, height: height)
+        .background(PopupBackground(accent: accent))
+    }
+}
+
 /// Empty state — large hierarchical icon + title + optional secondary text + optional action.
 struct EmptyStateView<Action: View>: View {
     let icon: String

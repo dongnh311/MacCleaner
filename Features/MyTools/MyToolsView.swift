@@ -23,7 +23,8 @@ struct MyToolsView: View {
         ModuleHeader(
             icon: "star",
             title: "My Tools",
-            subtitle: "Pinned modules — your shortcuts"
+            subtitle: "Pinned modules — your shortcuts",
+            accent: .pink
         ) {
             Button(editing ? "Done" : "Edit") {
                 editing.toggle()
@@ -104,8 +105,7 @@ private struct ToolCard: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(16)
-                .background(Color(NSColor.controlBackgroundColor))
-                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .cardStyle(radius: Radius.lg, withShadow: false)
 
                 if editing {
                     Button(action: onRemove) {

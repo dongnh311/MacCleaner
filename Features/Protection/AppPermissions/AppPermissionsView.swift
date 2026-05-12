@@ -34,7 +34,8 @@ struct AppPermissionsView: View {
         ModuleHeader(
             icon: "lock.shield",
             title: "App Permissions",
-            subtitle: "TCC.db viewer — manage in System Settings"
+            subtitle: "TCC.db viewer — manage in System Settings",
+            accent: .red
         ) {
             Button {
                 Task { await load() }
@@ -122,8 +123,7 @@ struct AppPermissionsView: View {
                     if entry.id != entries.last?.id { Divider() }
                 }
             }
-            .background(Color(NSColor.controlBackgroundColor))
-            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .cardStyle(radius: Radius.md, withShadow: false)
         }
     }
 

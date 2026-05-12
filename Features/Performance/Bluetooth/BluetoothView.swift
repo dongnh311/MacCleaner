@@ -21,7 +21,8 @@ struct BluetoothView: View {
         ModuleHeader(
             icon: "dot.radiowaves.left.and.right",
             title: "Bluetooth",
-            subtitle: "Paired devices, battery levels"
+            subtitle: "Paired devices, battery levels",
+            accent: .teal
         ) {
             Button { openKeyboardSettings() } label: {
                 Label("Keyboard Settings…", systemImage: "keyboard")

@@ -112,11 +112,7 @@ struct DashboardView: View {
     }
 
     private var diskRingColor: Color {
-        switch disk.usedPercent {
-        case ..<60:  return .green
-        case ..<85:  return .orange
-        default:     return .red
-        }
+        Color.percentTint(Int(disk.usedPercent))
     }
 
     // MARK: - CPU
@@ -421,7 +417,8 @@ struct UsageTrendsView: View {
             ModuleHeader(
                 icon: "chart.line.uptrend.xyaxis",
                 title: "Usage Trends",
-                subtitle: "Long-window analytics — apps you actually use, background runners, RAM hogs"
+                subtitle: "Long-window analytics — apps you actually use, background runners, RAM hogs",
+                accent: .teal
             ) {
                 Picker("Range", selection: $days) {
                     ForEach(Self.ranges, id: \.days) { Text($0.label).tag($0.days) }
@@ -599,7 +596,7 @@ struct UsageTrendsView: View {
                     .font(.caption).foregroundStyle(.tertiary)
                     .padding(.vertical, 12)
             } else if unused.isEmpty {
-                Text("Everything has been used recently 🎉")
+                Text("Everything has been used recently.")
                     .font(.caption).foregroundStyle(.tertiary)
                     .padding(.vertical, 12)
             } else {

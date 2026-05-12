@@ -19,7 +19,8 @@ struct ShredderView: View {
             ModuleHeader(
                 icon: "scissors",
                 title: "Shredder",
-                subtitle: "Overwrite and delete — irreversible. SSDs use TRIM; effectiveness limited there."
+                subtitle: "Overwrite and delete — irreversible. SSDs use TRIM; effectiveness limited there.",
+                accent: .pink
             ) {
                 Button {
                     pickFiles()

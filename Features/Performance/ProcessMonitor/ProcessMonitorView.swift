@@ -41,7 +41,8 @@ struct ProcessMonitorView: View {
         ModuleHeader(
             icon: "cpu",
             title: "Process Monitor",
-            subtitle: "Live snapshot — refreshes every 2 seconds"
+            subtitle: "Live snapshot — refreshes every 2 seconds",
+            accent: .teal
         ) {
             Text("\(processes.count) running")
                 .font(.caption).foregroundStyle(.secondary)
@@ -55,8 +56,7 @@ struct ProcessMonitorView: View {
                 TextField("Filter by name, user, PID…", text: $search).textFieldStyle(.plain)
             }
             .padding(.horizontal, 8).padding(.vertical, 4)
-            .background(Color(NSColor.controlBackgroundColor))
-            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .cardStyle(radius: Radius.md, withShadow: false)
         }
         .padding(.horizontal, 16).padding(.vertical, 8)
     }
@@ -100,7 +100,8 @@ struct ProcessMonitorView: View {
     private var footer: some View {
         HStack {
             Text("Total CPU: \(String(format: "%.1f", totalCPU))%")
-                .font(.caption).foregroundStyle(.secondary)
+                .font(.system(.caption, design: .monospaced))
+                .foregroundStyle(.secondary)
             Spacer()
             Text("Tip: right-click rows to Quit / Force Quit. System processes need admin.")
                 .font(.caption2).foregroundStyle(.secondary)

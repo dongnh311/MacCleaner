@@ -27,7 +27,8 @@ struct UpdaterView: View {
         ModuleHeader(
             icon: "arrow.triangle.2.circlepath",
             title: "Updater",
-            subtitle: "Homebrew casks + Sparkle apps"
+            subtitle: "Homebrew casks + Sparkle apps",
+            accent: .indigo
         ) {
             Button {
                 check()
@@ -116,8 +117,7 @@ struct UpdaterView: View {
                         if cask.id != caskUpdates.last?.id { Divider() }
                     }
                 }
-                .background(Color(NSColor.controlBackgroundColor))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .cardStyle(radius: 8, withShadow: false)
             }
         }
     }
@@ -158,8 +158,7 @@ struct UpdaterView: View {
                         if upd.id != sparkleUpdates.last?.id { Divider() }
                     }
                 }
-                .background(Color(NSColor.controlBackgroundColor))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .cardStyle(radius: 8, withShadow: false)
             }
         }
     }

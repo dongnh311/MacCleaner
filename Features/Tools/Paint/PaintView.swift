@@ -46,7 +46,8 @@ struct PaintView: View {
         ModuleHeader(
             icon: "paintbrush.pointed",
             title: "Paint",
-            subtitle: "Quick sketches and image edits — no extra app needed"
+            subtitle: "Quick sketches and image edits — no extra app needed",
+            accent: .pink
         ) {
             zoomControls
             Button { showingNewSheet = true } label: {

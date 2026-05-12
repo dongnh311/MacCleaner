@@ -34,7 +34,8 @@ struct DuplicateFinderView: View {
         ModuleHeader(
             icon: "doc.on.doc",
             title: "Duplicate Finder",
-            subtitle: "Byte-for-byte SHA-256 matching"
+            subtitle: "Byte-for-byte SHA-256 matching",
+            accent: .purple
         )
     }
 

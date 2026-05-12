@@ -186,7 +186,7 @@ struct SmartCareView: View {
         let hasItems = !report.cleanupItems.isEmpty || !report.trashItems.isEmpty
         return PillarModel(
             kind: .cleanup,
-            gradient: [Color(red: 0.42, green: 0.32, blue: 0.96), Color(red: 0.10, green: 0.62, blue: 0.96)],
+            gradient: PillarGradient.cleanup,
             icon: "internaldrive.fill",
             title: "Cleanup",
             subtitle: "Removes unneeded junk",
@@ -213,7 +213,7 @@ struct SmartCareView: View {
         }()
         return PillarModel(
             kind: .protection,
-            gradient: [Color.green.opacity(0.85), Color.mint.opacity(0.7)],
+            gradient: PillarGradient.protection,
             icon: "shield.lefthalf.filled",
             title: "Protection",
             subtitle: "Threats + hidden background apps",
@@ -233,7 +233,7 @@ struct SmartCareView: View {
         let totalBytes = hogs.reduce(Int64(0)) { $0 + $1.memoryBytes }
         return PillarModel(
             kind: .speed,
-            gradient: [Color.pink.opacity(0.85), Color.orange.opacity(0.7)],
+            gradient: PillarGradient.speed,
             icon: "speedometer",
             title: "Speed",
             subtitle: "Quit memory-hungry apps",
@@ -290,11 +290,11 @@ struct SmartCareView: View {
                     ZStack {
                         Circle()
                             .fill(LinearGradient(
-                                colors: [Color(red: 0.42, green: 0.32, blue: 0.96), Color(red: 0.10, green: 0.62, blue: 0.96)],
+                                colors: PillarGradient.cleanup,
                                 startPoint: .topLeading, endPoint: .bottomTrailing
                             ))
                             .frame(width: 76, height: 76)
-                            .shadow(color: Color(red: 0.42, green: 0.32, blue: 0.96).opacity(0.4), radius: 16, y: 4)
+                            .shadow(color: PillarGradient.cleanup[0].opacity(0.4), radius: 16, y: 4)
                         Circle()
                             .stroke(Color.white.opacity(0.55), lineWidth: 1.2)
                             .frame(width: 76, height: 76)

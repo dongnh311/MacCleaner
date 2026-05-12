@@ -70,7 +70,7 @@ actor QuarantineService {
                 onProgress?(url)
                 continue
             }
-            let dest = uniqueDestination(in: session, for: url)
+            let dest = Self.uniqueDestination(in: session, for: url)
             do {
                 let size = Self.fileSize(at: url)
                 try FileManager.default.moveItem(at: url, to: dest)
@@ -113,7 +113,7 @@ actor QuarantineService {
         var failed: [(URL, String)] = []
         var entries: [Manifest.Entry] = []
 
-        let appDest = uniqueDestination(in: session, for: appURL)
+        let appDest = Self.uniqueDestination(in: session, for: appURL)
         do {
             let appSize = Self.fileSize(at: appURL)
             try FileManager.default.moveItem(at: appURL, to: appDest)
@@ -135,7 +135,7 @@ actor QuarantineService {
                 onProgress?(url)
                 continue
             }
-            let dest = uniqueDestination(in: session, for: url)
+            let dest = Self.uniqueDestination(in: session, for: url)
             do {
                 let size = Self.fileSize(at: url)
                 try FileManager.default.moveItem(at: url, to: dest)
@@ -389,7 +389,7 @@ actor QuarantineService {
         return f.string(from: Date())
     }
 
-    private func uniqueDestination(in session: URL, for url: URL) -> URL {
+    private static func uniqueDestination(in session: URL, for url: URL) -> URL {
         var dest = session.appendingPathComponent(url.lastPathComponent)
         var counter = 1
         while FileManager.default.fileExists(atPath: dest.path) {

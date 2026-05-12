@@ -80,6 +80,24 @@ extension Font {
     static let monoSmall = Font.system(size: 11, design: .monospaced)
 }
 
+/// Smart Care pillar gradients, lifted from
+/// `design_handoff_maccleaner/preview/colors-pillars.html`. 160° gradient
+/// in CSS ≈ `.topLeading → .bottomTrailing` in SwiftUI.
+enum PillarGradient {
+    static let cleanup: [Color] = [
+        Color(red: 0.420, green: 0.322, blue: 0.961),   // #6B52F5
+        Color(red: 0.098, green: 0.620, blue: 0.961)    // #199EF5
+    ]
+    static let protection: [Color] = [
+        Color(red: 0.188, green: 0.820, blue: 0.345),   // #30D158
+        Color(red: 0.039, green: 0.714, blue: 0.478)    // #0AB67A
+    ]
+    static let speed: [Color] = [
+        Color(red: 1.000, green: 0.624, blue: 0.039),   // #FF9F0A
+        Color(red: 1.000, green: 0.271, blue: 0.227)    // #FF453A
+    ]
+}
+
 extension Color {
     /// Threshold tint for percent metrics (CPU, RAM, GPU). Battery uses
     /// the inverse — see `batteryTint`.

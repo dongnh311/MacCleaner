@@ -76,7 +76,8 @@ struct UninstallerView: View {
         ModuleHeader(
             icon: "xmark.bin",
             title: "Uninstaller",
-            subtitle: "Remove apps with all leftovers"
+            subtitle: "Remove apps with all leftovers",
+            accent: .indigo
         ) {
             Button {
                 scan()
@@ -105,8 +106,7 @@ struct UninstallerView: View {
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
-            .background(Color(NSColor.controlBackgroundColor))
-            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .cardStyle(radius: Radius.md, withShadow: false)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
@@ -233,8 +233,7 @@ struct UninstallerView: View {
                         }
                     }
                     .padding(8)
-                    .background(Color(NSColor.controlBackgroundColor))
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .cardStyle(radius: Radius.md, withShadow: false)
 
                     let total = leftovers.reduce(Int64(0)) { $0 + $1.size }
                     Text("Total leftover: \(total.formattedBytes)")

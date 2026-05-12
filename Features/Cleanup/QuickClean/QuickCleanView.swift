@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 @MainActor
 struct QuickCleanView: View {
@@ -12,6 +13,7 @@ struct QuickCleanView: View {
     @State private var resultMessage: String?
     @State private var detectedTools: [DetectedDevTool] = []
     @State private var showRunningToolsConfirm = false
+    @State private var detailGroup: Group?
     @StateObject private var progress = CleanProgressTracker()
 
     enum Phase: Equatable { case idle, scanning, ready, cleaning, done }
@@ -102,6 +104,53 @@ struct QuickCleanView: View {
         } message: {
             Text(runningToolsConfirmMessage)
         }
+        .sheet(item: $detailGroup) { group in
+            DetailSheet(
+                title: group.title,
+                subtitle: "\(group.items.count) item\(group.items.count == 1 ? "" : "s") · \(group.totalBytes.formattedBytes)",
+                accent: .orange,
+                onClose: { detailGroup = nil }
+            ) {
+                List {
+                    ForEach(group.items) { item in
+                        detailRow(item)
+                    }
+                }
+                .listStyle(.inset(alternatesRowBackgrounds: true))
+                .scrollContentBackground(.hidden)
+            }
+        }
+    }
+
+    private func detailRow(_ item: CleanableItem) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: item.isDirectory ? "folder.fill" : "doc.fill")
+                .foregroundStyle(.orange)
+                .frame(width: 16)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(item.title).font(.system(size: 13))
+                Text(item.url.path)
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+            Spacer()
+            Text(item.size.formattedBytes)
+                .font(.system(size: 12, design: .monospaced))
+                .monospacedDigit()
+                .foregroundStyle(.secondary)
+        }
+        .padding(.vertical, 2)
+        .contextMenu {
+            Button("Reveal in Finder") {
+                NSWorkspace.shared.activateFileViewerSelecting([item.url])
+            }
+            Button("Copy path") {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(item.url.path, forType: .string)
+            }
+        }
     }
 
     private var runningToolsConfirmTitle: String {
@@ -177,6 +226,10 @@ struct QuickCleanView: View {
                 .font(.system(.body, design: .monospaced))
                 .foregroundStyle(group.items.isEmpty ? .tertiary : .secondary)
                 .contentTransition(.numericText())
+
+            if !group.items.isEmpty {
+                InfoButton { detailGroup = group }
+            }
         }
         .padding(Spacing.md)
         .cardStyle()

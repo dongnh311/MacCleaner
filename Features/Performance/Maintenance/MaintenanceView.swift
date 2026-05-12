@@ -33,7 +33,8 @@ struct MaintenanceView: View {
         ModuleHeader(
             icon: "wrench.and.screwdriver",
             title: "Maintenance",
-            subtitle: "System scripts — admin items must be run with sudo"
+            subtitle: "System scripts — admin items must be run with sudo",
+            accent: .teal
         )
     }
 
@@ -86,8 +87,7 @@ struct MaintenanceView: View {
             }
         }
         .padding(12)
-        .background(Color(NSColor.controlBackgroundColor))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .cardStyle(radius: 8, withShadow: false)
     }
 
     private var helperBanner: some View {

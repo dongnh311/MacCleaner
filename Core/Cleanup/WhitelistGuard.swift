@@ -35,7 +35,16 @@ enum WhitelistGuard {
         ".android/avd",
         ".android/cache",
         // Android SDK install — wiping it bricks the toolchain.
-        "Library/Android"
+        "Library/Android",
+        // Holds the Android emulator's PID-locked JWKS auth keys at
+        // `TemporaryItems/avd/running/<pid>/jwks/*`. Despite the
+        // "Temporary" name, these are load-bearing: Android Studio's
+        // Device Mirroring uses them to authenticate to the running
+        // qemu instance. Deleting this folder while the emulator is up
+        // is the root cause of the recurring "mirror drops mid-Clean"
+        // bug — Quick Clean's `user_caches_root` rule would enumerate
+        // it as a child of `~/Library/Caches` and direct-delete it.
+        "Library/Caches/TemporaryItems"
     ]
 
     /// Tied paths that must be protected when a particular dev tool is live.

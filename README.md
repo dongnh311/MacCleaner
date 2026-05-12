@@ -32,6 +32,17 @@ Not for distribution. Single-user, ad-hoc signed.
 - **Built-in Paint** — multi-layer raster + vector editor for quick
   markup so you don't need to install Paint S or open Preview.
 - **Localized** in English + Tiếng Việt.
+- **Design system** — every module pulls its accent from
+  `SidebarItem.section.accentColor`, cards from `cardStyle()`, percent /
+  battery / temperature tints from `Color.percentTint(_:)` &
+  `temperatureTint(_:)` & `batteryTint(_:)` in
+  `Core/UI/DesignTokens.swift`. Smart Care pillar gradients live in
+  `PillarGradient.{cleanup,protection,speed}`. Full spec under
+  `design_handoff_maccleaner/`.
+- **Detail popups** — list rows that hide more than the row chrome
+  expose an `i` button → `DetailSheet` with full path, size, rule
+  provenance + Copy / Reveal in Finder. Wired on Quick Clean groups,
+  every `CleanupItemRow`, and Malware threats.
 
 ---
 

@@ -35,7 +35,8 @@ struct SpaceLensView: View {
         ModuleHeader(
             icon: "chart.pie",
             title: "Space Lens",
-            subtitle: "Treemap of disk usage — click to drill in"
+            subtitle: "Treemap of disk usage — click to drill in",
+            accent: .purple
         ) {
             Menu {
                 ForEach(volumes(), id: \.self) { vol in

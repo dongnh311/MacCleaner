@@ -35,7 +35,8 @@ struct SimilarPhotosView: View {
         ModuleHeader(
             icon: "photo.on.rectangle.angled",
             title: "Similar Photos",
-            subtitle: "Vision feature-print clustering"
+            subtitle: "Vision feature-print clustering",
+            accent: .purple
         )
     }
 
@@ -230,8 +231,7 @@ private struct ClusterCard: View {
             }
         }
         .padding(12)
-        .background(Color(NSColor.controlBackgroundColor))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .cardStyle(radius: 8, withShadow: false)
     }
 }
 

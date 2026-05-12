@@ -178,7 +178,8 @@ struct RootView: View {
                 scanner: container.privacyCleaner,
                 title: "Privacy",
                 subtitle: "Browser data, recents, chat caches",
-                symbol: "eye.slash"
+                symbol: "eye.slash",
+                accent: .red
             )
         case .appPermissions:
             AppPermissionsView()

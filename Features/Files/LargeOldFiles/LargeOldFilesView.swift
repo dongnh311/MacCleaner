@@ -45,7 +45,8 @@ struct LargeOldFilesView: View {
         ModuleHeader(
             icon: "doc.text.magnifyingglass",
             title: "Large & Old Files",
-            subtitle: "Files matching size and age thresholds"
+            subtitle: "Files matching size and age thresholds",
+            accent: .purple
         )
     }
 

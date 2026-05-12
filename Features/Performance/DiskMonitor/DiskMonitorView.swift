@@ -21,7 +21,8 @@ struct DiskMonitorView: View {
         ModuleHeader(
             icon: "internaldrive",
             title: "Disk Monitor",
-            subtitle: "Per-volume free/used + live read/write throughput"
+            subtitle: "Per-volume free/used + live read/write throughput",
+            accent: .teal
         ) {
             Button { Task { await refresh() } } label: {
                 Label("Refresh", systemImage: "arrow.clockwise")

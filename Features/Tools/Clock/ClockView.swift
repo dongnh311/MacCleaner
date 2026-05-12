@@ -30,7 +30,8 @@ struct ClockView: View {
         ModuleHeader(
             icon: "clock",
             title: "Clock",
-            subtitle: "Multiple time zones at a glance"
+            subtitle: "Multiple time zones at a glance",
+            accent: .pink
         ) {
             Toggle("24-hour", isOn: $service.use24Hour)
                 .toggleStyle(.switch)
@@ -87,8 +88,7 @@ struct ClockView: View {
             .buttonStyle(.borderless)
         }
         .padding(Spacing.md)
-        .background(Color(NSColor.controlBackgroundColor))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .cardStyle(radius: 8, withShadow: false)
         .overlay(
             RoundedRectangle(cornerRadius: 8)
                 .stroke(Color.primary.opacity(0.06), lineWidth: 0.5)

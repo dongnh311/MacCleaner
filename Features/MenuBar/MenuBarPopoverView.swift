@@ -213,12 +213,7 @@ struct MenuBarPopoverView: View {
     }
 
     private var sensorTint: Color {
-        guard let t = status.cpuTemperature else { return .secondary }
-        switch t {
-        case ..<60: return .green
-        case ..<80: return .orange
-        default:    return .red
-        }
+        Color.temperatureTint(status.cpuTemperature)
     }
 
     private var diskTile: some View {

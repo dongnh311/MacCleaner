@@ -29,7 +29,8 @@ struct NetworkView: View {
         ModuleHeader(
             icon: "wifi",
             title: "Network",
-            subtitle: "Throughput, interfaces, public IP — last 60s rolling"
+            subtitle: "Throughput, interfaces, public IP — last 60s rolling",
+            accent: .teal
         ) {
             if container.menuBarStatus.isVPNActive {
                 Label("VPN", systemImage: "lock.shield")
@@ -71,8 +72,7 @@ struct NetworkView: View {
             }
         }
         .padding(Spacing.md)
-        .background(Color(NSColor.controlBackgroundColor))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .cardStyle(radius: 8, withShadow: false)
     }
 
     private func metricBlock(label: String, value: UInt64, color: Color) -> some View {
@@ -123,8 +123,7 @@ struct NetworkView: View {
             }
         }
         .padding(Spacing.md)
-        .background(Color(NSColor.controlBackgroundColor))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .cardStyle(radius: 8, withShadow: false)
     }
 
     private var interfacesCard: some View {
@@ -145,8 +144,7 @@ struct NetworkView: View {
             }
         }
         .padding(Spacing.md)
-        .background(Color(NSColor.controlBackgroundColor))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .cardStyle(radius: 8, withShadow: false)
     }
 
     private func interfaceRow(_ iface: NetworkInterfaceInfo) -> some View {

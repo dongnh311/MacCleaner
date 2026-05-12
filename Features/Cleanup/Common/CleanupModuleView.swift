@@ -7,6 +7,11 @@ struct CleanupModuleView<S: CleanupScanner>: View {
     let title: String
     let subtitle: String
     let symbol: String
+    /// Section accent tint used for the module header + detail-popup
+    /// chrome so the popup blends with the surrounding panel. Defaults
+    /// to `.orange` (Cleanup section); Protection-section modules
+    /// (Privacy) override with `.red`.
+    var accent: Color = .orange
 
     @EnvironmentObject private var container: AppContainer
 
@@ -54,7 +59,8 @@ struct CleanupModuleView<S: CleanupScanner>: View {
             ModuleHeader(
                 icon: symbol,
                 title: title,
-                subtitle: subtitle
+                subtitle: subtitle,
+                accent: accent
             ) {
                 if phase == .scanned && !items.isEmpty {
                     Button {
@@ -261,10 +267,10 @@ struct CleanupModuleView<S: CleanupScanner>: View {
                                             if newValue { selectedIDs.insert(item.id) }
                                             else { selectedIDs.remove(item.id) }
                                         }
-                                    )
-                                ) {
-                                    NSWorkspace.shared.activateFileViewerSelecting([item.url])
-                                }
+                                    ),
+                                    onReveal: { NSWorkspace.shared.activateFileViewerSelecting([item.url]) },
+                                    accent: accent
+                                )
                             }
                         }
                     }
@@ -615,6 +621,9 @@ struct CleanupItemRow: View {
     let item: CleanableItem
     @Binding var isOn: Bool
     let onReveal: () -> Void
+    var accent: Color = .accentColor
+
+    @State private var showDetail = false
 
     var body: some View {
         HStack(spacing: 8) {
@@ -639,10 +648,107 @@ struct CleanupItemRow: View {
             Text(item.size.formattedBytes)
                 .font(.system(.body, design: .monospaced))
                 .foregroundStyle(.secondary)
+            InfoButton { showDetail = true }
         }
         .padding(.vertical, 2)
         .contextMenu {
+            Button("View details") { showDetail = true }
             Button("Reveal in Finder", action: onReveal)
+        }
+        .sheet(isPresented: $showDetail) {
+            CleanableItemDetailSheet(item: item, accent: accent) { showDetail = false }
+        }
+    }
+}
+
+/// Read-only popup with everything we know about a CleanableItem —
+/// full path, size, category rationale, safety reason, rule provenance,
+/// last-modified timestamp. Copy / Reveal actions sticky at the bottom.
+struct CleanableItemDetailSheet: View {
+    let item: CleanableItem
+    var accent: Color = .accentColor
+    let onClose: () -> Void
+
+    var body: some View {
+        DetailSheet(
+            title: item.title,
+            subtitle: "\(item.category.displayName) · \(item.size.formattedBytes)",
+            accent: accent,
+            width: 560,
+            height: 480,
+            onClose: onClose
+        ) {
+            VStack(spacing: 0) {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 14) {
+                        detailRow("Path", value: item.url.path, mono: true)
+                        detailRow("Size", value: item.size.formattedBytes, mono: true)
+                        detailRow("Type", value: item.isDirectory ? "Folder" : "File")
+                        detailRow("Category", value: item.category.displayName)
+                        detailRow("Safety", value: item.safetyLevel.displayName)
+                        if let modified = item.lastModified {
+                            detailRow("Last modified", value: modified.formatted(date: .abbreviated, time: .shortened))
+                        }
+                        if let ruleID = item.ruleID {
+                            detailRow("Source rule", value: ruleID, mono: true)
+                        }
+                        if !item.description.isEmpty {
+                            Divider().padding(.vertical, 4)
+                            Text("WHY THIS IS HERE")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                                .tracking(0.5)
+                            Text(item.description)
+                                .font(.callout)
+                                .foregroundStyle(.primary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        if !item.category.rationale.isEmpty {
+                            Divider().padding(.vertical, 4)
+                            Text("CATEGORY RATIONALE")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                                .tracking(0.5)
+                            Text(item.category.rationale)
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    .padding(20)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                Divider()
+                HStack {
+                    Spacer()
+                    Button("Copy path") {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(item.url.path, forType: .string)
+                    }
+                    Button {
+                        NSWorkspace.shared.activateFileViewerSelecting([item.url])
+                    } label: {
+                        Label("Reveal in Finder", systemImage: "folder")
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+                .padding(12)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func detailRow(_ label: String, value: String, mono: Bool = false) -> some View {
+        HStack(alignment: .top, spacing: 16) {
+            Text(label.uppercased())
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .tracking(0.5)
+                .frame(width: 110, alignment: .leading)
+            Text(value)
+                .font(mono ? .system(size: 12, design: .monospaced) : .system(size: 13))
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 }

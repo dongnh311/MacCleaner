@@ -141,20 +141,12 @@ struct MenuBarStatusLabel: View {
     }
 
     private func thresholdColor(percent: Int) -> Color {
-        switch percent {
-        case ..<60: return .green
-        case ..<85: return .orange
-        default:    return .red
-        }
+        Color.percentTint(percent)
     }
 
     /// Inverted scale for battery — low = bad.
     private func batteryColor(percent: Int) -> Color {
-        switch percent {
-        case ...20: return .red
-        case ...50: return .orange
-        default:    return .green
-        }
+        Color.batteryTint(percent)
     }
 
     // MARK: - Formatting

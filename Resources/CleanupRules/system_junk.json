@@ -27,7 +27,8 @@
         "~/Library/Caches/com.apple.akd",
         "~/Library/Caches/com.apple.AppStore",
         "~/Library/Caches/com.apple.commerce",
-        "~/Library/Caches/com.apple.assistantd"
+        "~/Library/Caches/com.apple.assistantd",
+        "~/Library/Caches/TemporaryItems"
       ],
       "category": "user_cache",
       "safetyLevel": "safe",
