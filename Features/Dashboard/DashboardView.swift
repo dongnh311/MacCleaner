@@ -386,3 +386,272 @@ private struct StatCard<Content: View>: View {
         .cardStyle()
     }
 }
+
+// MARK: - Usage Trends
+
+/// Long-window analytics view backed by the `app_usage_hourly` table.
+/// Surfaces three insights:
+/// - which apps the user actually uses (by total minutes seen)
+/// - which background apps are quietly racking up hours (data-risk
+///   candidates — they're up but don't have a Dock window)
+/// - which apps hold the most RAM on average when running
+///
+/// Data appears as the AppUsageLogger flushes — first partial flush
+/// after ~5 minutes of MacCleaner runtime, full hour after the next
+/// hour-roll. The card states cover both empty + ready cases.
+@MainActor
+struct UsageTrendsView: View {
+
+    @EnvironmentObject private var container: AppContainer
+
+    @State private var days: Int = 7
+    @State private var topByPresence: [UsageAggregate] = []
+    @State private var topBackground: [UsageAggregate] = []
+    @State private var topByMemory: [UsageAggregate] = []
+    @State private var lastSeenMap: [String: Int] = [:]
+    @State private var installedApps: [InstalledApp] = []
+    @State private var loading = false
+
+    private static let ranges: [(label: String, days: Int)] = [
+        ("7 days", 7), ("30 days", 30), ("90 days", 90)
+    ]
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ModuleHeader(
+                icon: "chart.line.uptrend.xyaxis",
+                title: "Usage Trends",
+                subtitle: "Long-window analytics — apps you actually use, background runners, RAM hogs"
+            ) {
+                Picker("Range", selection: $days) {
+                    ForEach(Self.ranges, id: \.days) { Text($0.label).tag($0.days) }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .frame(width: 220)
+                Button {
+                    Task { await load(rescanInstalledApps: true) }
+                } label: {
+                    Label("Refresh", systemImage: "arrow.clockwise")
+                }
+                .disabled(loading)
+            }
+            Divider()
+            ScrollView {
+                VStack(alignment: .leading, spacing: Spacing.lg) {
+                    explainer
+                    // Two independent columns rather than LazyVGrid so each
+                    // card sits flush against the one above — Memory hogs
+                    // doesn't get stretched to match Unused apps' height.
+                    HStack(alignment: .top, spacing: Spacing.lg) {
+                        VStack(spacing: Spacing.lg) {
+                            usageCard(title: "Most-used apps",
+                                      subtitle: "Total time foreground/background",
+                                      symbol: "clock.fill",
+                                      tint: .blue,
+                                      rows: topByPresence,
+                                      metric: .duration)
+                            usageCard(title: "Memory hogs (avg)",
+                                      subtitle: "Highest avg RAM while running",
+                                      symbol: "memorychip",
+                                      tint: .pink,
+                                      rows: topByMemory,
+                                      metric: .memory)
+                        }
+                        VStack(spacing: Spacing.lg) {
+                            usageCard(title: "Background runners",
+                                      subtitle: "Hidden / menu-bar apps by uptime",
+                                      symbol: "shield.lefthalf.filled",
+                                      tint: .orange,
+                                      rows: topBackground,
+                                      metric: .duration)
+                            unusedCard
+                        }
+                    }
+                }
+                .padding(Spacing.xl)
+            }
+        }
+        // Auto-refresh every 60s so the latest tick flush is picked up
+        // without the user clicking Refresh. Re-keys on `days` so the
+        // loop restarts on time-window change. Installed-app scan only
+        // runs on first iteration (cheap DB queries on subsequent ticks).
+        .task(id: days) {
+            var first = true
+            while !Task.isCancelled {
+                await load(rescanInstalledApps: first)
+                first = false
+                try? await Task.sleep(nanoseconds: 60 * 1_000_000_000)
+            }
+        }
+    }
+
+    private var explainer: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "info.circle")
+                .foregroundStyle(.secondary)
+            Text("Stats only count time MacCleaner was running. First samples flush after ~5 minutes; full hours land on the next hour-roll. Old data drops after 90 days.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer()
+        }
+        .padding(Spacing.md)
+        .background(Color.secondary.opacity(0.06))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    private enum Metric { case duration, memory }
+
+    @ViewBuilder
+    private func usageCard(title: String, subtitle: String, symbol: String,
+                           tint: Color, rows: [UsageAggregate], metric: Metric) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: symbol).foregroundStyle(tint)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(title).font(.system(size: 13, weight: .semibold))
+                    Text(subtitle).font(.caption2).foregroundStyle(.secondary)
+                }
+                Spacer()
+            }
+            if rows.isEmpty {
+                Text("No data in this window yet")
+                    .font(.caption).foregroundStyle(.tertiary)
+                    .padding(.vertical, 12)
+            } else {
+                VStack(spacing: 4) {
+                    ForEach(rows.prefix(8)) { row in
+                        usageRow(row, metric: metric, tint: tint)
+                    }
+                }
+            }
+        }
+        .padding(Spacing.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .cardStyle()
+    }
+
+    private func usageRow(_ row: UsageAggregate, metric: Metric, tint: Color) -> some View {
+        HStack(spacing: 8) {
+            Text(row.name).font(.system(size: 12))
+                .lineLimit(1).truncationMode(.middle)
+            if row.isBackground {
+                Text("BG")
+                    .font(.system(size: 8, weight: .bold))
+                    .padding(.horizontal, 3).padding(.vertical, 1)
+                    .background(Color.secondary.opacity(0.18))
+                    .foregroundStyle(.secondary)
+                    .clipShape(Capsule())
+            }
+            Spacer(minLength: 6)
+            Text(metricValue(row, metric: metric))
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundStyle(tint)
+        }
+    }
+
+    private func metricValue(_ row: UsageAggregate, metric: Metric) -> String {
+        switch metric {
+        case .duration:
+            let hours = Double(row.totalMinutes) / 60
+            if hours < 1 { return "\(row.totalMinutes)m" }
+            return String(format: "%.1fh", hours)
+        case .memory:
+            return row.avgMemoryBytes.formattedBytes
+        }
+    }
+
+    /// Apps the user has installed but the logger hasn't seen in this
+    /// window (or has never seen). Cross-references AppScanner output
+    /// against `lastSeenPerApp()` — anything missing OR older than the
+    /// cutoff lands here, sorted by how long it's been stale.
+    private var unusedCard: some View {
+        let cutoff = AppDatabase.currentHour() - days * 24
+        let unused: [InstalledApp] = installedApps
+            .filter { app in
+                guard let bid = app.bundleID, !bid.isEmpty else { return false }
+                // Skip MacCleaner itself — it's always running when this view loads.
+                if bid == Bundle.main.bundleIdentifier { return false }
+                let last = lastSeenMap[bid] ?? 0
+                return last < cutoff
+            }
+            .sorted { (a, b) in
+                let la = lastSeenMap[a.bundleID ?? ""] ?? 0
+                let lb = lastSeenMap[b.bundleID ?? ""] ?? 0
+                return la < lb
+            }
+            .prefix(8)
+            .map { $0 }
+
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: "moon.zzz").foregroundStyle(.purple)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Unused apps").font(.system(size: 13, weight: .semibold))
+                    Text("Installed but not seen in this window")
+                        .font(.caption2).foregroundStyle(.secondary)
+                }
+                Spacer()
+            }
+            if installedApps.isEmpty {
+                Text("Scanning installed apps…")
+                    .font(.caption).foregroundStyle(.tertiary)
+                    .padding(.vertical, 12)
+            } else if unused.isEmpty {
+                Text("Everything has been used recently 🎉")
+                    .font(.caption).foregroundStyle(.tertiary)
+                    .padding(.vertical, 12)
+            } else {
+                VStack(spacing: 4) {
+                    ForEach(unused) { app in
+                        unusedRow(app)
+                    }
+                }
+            }
+        }
+        .padding(Spacing.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .cardStyle()
+    }
+
+    private func unusedRow(_ app: InstalledApp) -> some View {
+        let last = lastSeenMap[app.bundleID ?? ""] ?? 0
+        let staleness: String = {
+            if last == 0 { return "never" }
+            let currentHour = AppDatabase.currentHour()
+            let hoursAgo = currentHour - last
+            if hoursAgo < 24 { return "\(hoursAgo)h ago" }
+            return "\(hoursAgo / 24)d ago"
+        }()
+        return HStack(spacing: 8) {
+            Text(app.name).font(.system(size: 12))
+                .lineLimit(1).truncationMode(.middle)
+            Spacer(minLength: 6)
+            Text(staleness)
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundStyle(.purple)
+        }
+    }
+
+    private func load(rescanInstalledApps: Bool) async {
+        loading = true
+        // DB queries are cheap; AppScanner walks every .app bundle on
+        // disk and is expensive (~tens of thousands of inodes). Only
+        // re-scan when the user explicitly hits Refresh or on first
+        // mount — the installed-app list barely changes between ticks.
+        async let presence = (try? await container.db.topUsageByPresence(days: days, limit: 8, backgroundOnly: false)) ?? []
+        async let bg = (try? await container.db.topUsageByPresence(days: days, limit: 8, backgroundOnly: true)) ?? []
+        async let memory = (try? await container.db.topUsageByMemory(days: days, limit: 8)) ?? []
+        async let lastSeen = (try? await container.db.lastSeenPerApp()) ?? [:]
+        if rescanInstalledApps {
+            async let apps = container.appScanner.scan()
+            installedApps = await apps
+        }
+        topByPresence = await presence
+        topBackground = await bg
+        topByMemory = await memory
+        lastSeenMap = await lastSeen
+        loading = false
+    }
+}

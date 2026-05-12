@@ -39,6 +39,7 @@ final class AppContainer: ObservableObject {
     let diskIOService: DiskIOService
     let systemActivityService: SystemActivityService
     let menuBarStatus: MenuBarStatusModel
+    let appUsageLogger: AppUsageLogger
     let appMetadata = AppMetadataResolver()
     let cleanupResultsCache = CleanupResultsCache()
 
@@ -114,9 +115,12 @@ final class AppContainer: ObservableObject {
             processes: processMonitor
         )
 
+        self.appUsageLogger = AppUsageLogger(db: database, processMonitor: processMonitor)
+
         Log.app.info("AppContainer initialised")
 
         menuBarStatus.start()
+        Task { [appUsageLogger] in await appUsageLogger.start() }
 
         Task { [ruleEngine, quarantine] in
             do {

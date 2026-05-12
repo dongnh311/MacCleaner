@@ -19,8 +19,14 @@ Not for distribution. Single-user, ad-hoc signed.
   detection, Bluetooth devices, disk I/O.
 - **Quarantine with restore** — anything cleaned moves to a 7-day
   quarantine before being permanently deleted; one-click restore.
-- **Smart Care** orchestrator runs every pillar in parallel and
-  surfaces a single Clean Safe button.
+- **Smart Care** orchestrator runs Cleanup / Protection / Speed in
+  parallel and surfaces a single Clean button — Protection also lists
+  hidden background apps so menu-bar / daemon processes you don't
+  recognise are one click away from a quit.
+- **Usage Trends** — 60s sampler logs every running app into a 90-day
+  hourly history, then surfaces which apps you actually use, which
+  background runners are quietly racking up hours, and which installed
+  apps you haven't opened in months.
 - **Menu bar agent** that survives Cmd+Q. Configurable metric strip
   (CPU, RAM, GPU, network) + popover with tiles + alerts.
 - **Built-in Paint** — multi-layer raster + vector editor for quick
@@ -67,10 +73,18 @@ window-level inspection.
 
 ### Smart Care
 
-One scan that fans out across System Junk, Trash, Malware, App
-updates, Homebrew updates and Login Items in parallel. The result is
-one report card; *Clean Safe* removes only items flagged as
-`SafetyLevel.safe`.
+One scan that fans out three pillars in parallel:
+
+- **Cleanup** — mirrors Quick Clean (safe-only system junk + trash)
+- **Protection** — persistence threats (suspicious LaunchAgents, quarantined binaries) **plus running background apps**: anything in
+  `NSWorkspace.runningApplications` with a non-`.regular` activation policy is surfaced so menu-bar utilities and hidden daemons get
+  one-click visibility / quit
+- **Speed** — apps holding ≥ 500 MB RAM (SIGTERM via Process Monitor)
+
+The result is one report card; **Clean** quarantines selected threats,
+removes selected junk, and quits selected processes in one parallel
+pass. A CMM-style log sheet shows the per-file outcome — removed,
+skipped-for-safety, errored.
 
 ![Smart Care](docs/screenshots/smart-care.png)
 
@@ -172,6 +186,29 @@ toggle (enable/disable via launchctl) and delete (move to quarantine).
 SIGKILL buttons per row.
 
 ![Process Monitor](docs/screenshots/process-monitor.png)
+
+### Usage Trends
+
+A 60s sampler walks `NSWorkspace.runningApplications` and writes the
+hourly aggregate (`bundle_id`, `minutes_seen`, `avg_memory_bytes`,
+`is_background`) to a SQLite table. Aggregates persist for 90 days
+then auto-purge.
+
+Four cards (7 / 30 / 90 day picker):
+
+- **Most-used apps** — top by total minutes seen across the window
+- **Background runners** — hidden / menu-bar apps by uptime, the place
+  to spot a daemon that's been quietly running 6 hours a day
+- **Memory hogs (avg)** — apps with the highest mean RAM while running
+  (filtered to ≥ 30 minutes of samples so brief spikes don't dominate)
+- **Unused apps** — installed apps the sampler hasn't seen in this
+  window, sorted by how long they've been stale; "never" means never
+  opened while MacCleaner was running
+
+Data only counts time MacCleaner was up. First samples land within
+~60s of launch; the view auto-refreshes every 60s.
+
+![Usage Trends](docs/screenshots/usage-trends.png)
 
 ### Memory
 

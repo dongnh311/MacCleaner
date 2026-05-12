@@ -153,6 +153,8 @@ struct RootView: View {
             LoginItemsView()
         case .processMonitor:
             ProcessMonitorView()
+        case .usageTrends:
+            UsageTrendsView()
         case .memory:
             MemoryReleaseView()
         case .battery:

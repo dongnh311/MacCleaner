@@ -5,6 +5,11 @@ struct SmartCareReport: Sendable {
     let trashItems: [CleanableItem]
     let malwareItems: [ThreatItem]
     let ramHogs: [ProcessSnapshot]
+    /// Background apps (LSUIElement / LSBackgroundOnly) surfaced under
+    /// the Protection pillar so the user can audit "what's running that
+    /// I don't see in the Dock" — covers menu-bar utilities and hidden
+    /// daemons that might be exfiltrating data.
+    let backgroundApps: [BackgroundApp]
     let scannedAt: Date
 
     var totalCleanableBytes: Int64 {
@@ -16,6 +21,12 @@ struct SmartCareReport: Sendable {
     }
     var hasDanger: Bool {
         malwareItems.contains { $0.severity == .danger }
+    }
+    /// Non-Apple background apps the user should glance at. Apple
+    /// processes are listed for completeness but excluded from the count
+    /// so the pillar badge doesn't claim "issues" over cfprefsd.
+    var thirdPartyBackgroundCount: Int {
+        backgroundApps.filter { !$0.isAppleProcess }.count
     }
 }
 
@@ -62,14 +73,24 @@ actor SmartCareOrchestrator {
             .prefix(10)
             .map { $0 }
 
+        // Background app scan needs NSWorkspace on MainActor. Reuse the
+        // process snapshot we already have for RSS lookup so we don't
+        // fork ps a second time.
+        // ps can emit duplicate pids during process transitions; `unique…`
+        // would crash here.
+        let rssByPID = Dictionary(processList.map { ($0.pid, $0.memoryBytes) },
+                                  uniquingKeysWith: { first, _ in first })
+        let backgroundApps = await MainActor.run { BackgroundAppScanner.scan(rssByPID: rssByPID) }
+
         let report = SmartCareReport(
             cleanupItems: junk,
             trashItems: trashItems,
             malwareItems: malwareItems,
             ramHogs: ramHogs,
+            backgroundApps: backgroundApps,
             scannedAt: Date()
         )
-        Log.scanner.info("SmartCare report: \(report.totalIssueCount) issues, \(report.totalCleanableBytes.formattedBytes) cleanable, \(ramHogs.count) ram hogs")
+        Log.scanner.info("SmartCare report: \(report.totalIssueCount) issues, \(report.totalCleanableBytes.formattedBytes) cleanable, \(ramHogs.count) ram hogs, \(report.thirdPartyBackgroundCount) third-party bg apps")
         return report
     }
 

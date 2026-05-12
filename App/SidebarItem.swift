@@ -25,6 +25,7 @@ enum SidebarItem: String, CaseIterable, Hashable, Identifiable {
     case maintenance
     case loginItems
     case processMonitor
+    case usageTrends
     case memory
     case battery
     case sensors
@@ -50,7 +51,7 @@ enum SidebarItem: String, CaseIterable, Hashable, Identifiable {
         case .smartCare, .dashboard: return .scan
         case .quickClean, .systemJunk, .mailAttachments, .photoJunk, .trashBins: return .cleanup
         case .malware, .privacy, .appPermissions: return .protection
-        case .maintenance, .loginItems, .processMonitor, .memory, .battery, .sensors, .network, .bluetooth, .diskMonitor: return .performance
+        case .maintenance, .loginItems, .processMonitor, .usageTrends, .memory, .battery, .sensors, .network, .bluetooth, .diskMonitor: return .performance
         case .uninstaller, .updater: return .applications
         case .spaceLens, .largeOldFiles, .duplicates, .similarPhotos: return .files
         case .shredder, .quarantine, .myTools, .clock, .paint: return .tools
@@ -72,6 +73,7 @@ enum SidebarItem: String, CaseIterable, Hashable, Identifiable {
         case .maintenance: return "Maintenance"
         case .loginItems: return "Login Items"
         case .processMonitor: return "Process Monitor"
+        case .usageTrends: return "Usage Trends"
         case .memory: return "Memory"
         case .battery: return "Battery"
         case .sensors: return "Sensors"
@@ -107,6 +109,7 @@ enum SidebarItem: String, CaseIterable, Hashable, Identifiable {
         case .maintenance: return "wrench.and.screwdriver"
         case .loginItems: return "power"
         case .processMonitor: return "cpu"
+        case .usageTrends: return "chart.line.uptrend.xyaxis"
         case .memory: return "memorychip"
         case .battery: return "battery.75percent"
         case .sensors: return "thermometer.medium"

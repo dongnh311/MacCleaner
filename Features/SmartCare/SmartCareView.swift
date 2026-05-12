@@ -21,6 +21,7 @@ struct SmartCareView: View {
     @State private var trashSelection: Set<UUID> = []
     @State private var malwareSelection: Set<URL> = []
     @State private var speedSelection: Set<Int32> = []
+    @State private var bgAppsSelection: Set<Int32> = []
 
     @StateObject private var progress = CleanProgressTracker()
 
@@ -205,6 +206,9 @@ struct SmartCareView: View {
             if report.malwareItems.contains(where: { $0.severity == .warn }) {
                 return ("Review", .orange, true)
             }
+            if report.thirdPartyBackgroundCount > 0 {
+                return ("\(report.thirdPartyBackgroundCount) hidden", .blue, true)
+            }
             return ("OK", .green, false)
         }()
         return PillarModel(
@@ -212,9 +216,12 @@ struct SmartCareView: View {
             gradient: [Color.green.opacity(0.85), Color.mint.opacity(0.7)],
             icon: "shield.lefthalf.filled",
             title: "Protection",
-            subtitle: "Neutralises potential threats",
+            subtitle: "Threats + hidden background apps",
             primaryValue: summary.value,
             primaryColor: summary.color,
+            primarySuffix: report.thirdPartyBackgroundCount > 0 && report.malwareItems.isEmpty
+                ? "menu-bar / daemon apps"
+                : nil,
             showsCheckmark: !summary.hasIssue,
             hasIssue: summary.hasIssue,
             detailsLabel: summary.hasIssue ? "Review Details…" : nil
@@ -256,6 +263,8 @@ struct SmartCareView: View {
             ProtectionDetailSheet(
                 items: report?.malwareItems ?? [],
                 selection: $malwareSelection,
+                backgroundApps: report?.backgroundApps ?? [],
+                bgAppsSelection: $bgAppsSelection,
                 onDone: { activeSheet = nil }
             )
         case .speed:
@@ -328,6 +337,7 @@ struct SmartCareView: View {
         // deliberate tick in the Review Details sheet first.
         malwareSelection = []
         speedSelection = []
+        bgAppsSelection = []
         phase = .ready
         try? await container.db.recordScan(
             module: "SmartCare",
@@ -349,7 +359,12 @@ struct SmartCareView: View {
             let selectedJunk = report.cleanupItems.filter { cleanupSelection.contains($0.id) }
             let selectedTrash = report.trashItems.filter { trashSelection.contains($0.id) }
             let selectedThreats = report.malwareItems.filter { malwareSelection.contains($0.id) }
-            let selectedPIDs = report.ramHogs.filter { speedSelection.contains($0.pid) }.map(\.pid)
+            let selectedSpeedPIDs = report.ramHogs.filter { speedSelection.contains($0.pid) }.map(\.pid)
+            let selectedBgPIDs = report.backgroundApps.filter { bgAppsSelection.contains($0.pid) }.map(\.pid)
+            // De-dup in case the same pid appears in both pillars (unlikely
+            // since Speed filters by RAM ≥ 500 MB and bg apps are usually
+            // much smaller, but cheap to guard).
+            let selectedPIDs = Array(Set(selectedSpeedPIDs + selectedBgPIDs))
 
             let totalTasks = selectedJunk.count + selectedTrash.count + selectedThreats.count + selectedPIDs.count
             progress.start(total: totalTasks)
@@ -561,46 +576,117 @@ private struct CleanupDetailSheet: View {
 private struct ProtectionDetailSheet: View {
     let items: [ThreatItem]
     @Binding var selection: Set<URL>
+    let backgroundApps: [BackgroundApp]
+    @Binding var bgAppsSelection: Set<Int32>
     let onDone: () -> Void
+
+    private var summary: String {
+        let threats = selection.count
+        let bg = bgAppsSelection.count
+        if threats == 0 && bg == 0 { return "Nothing selected" }
+        var parts: [String] = []
+        if threats > 0 { parts.append("\(threats) threat\(threats == 1 ? "" : "s") → quarantine") }
+        if bg > 0 { parts.append("\(bg) app\(bg == 1 ? "" : "s") → quit") }
+        return parts.joined(separator: " · ")
+    }
 
     var body: some View {
         DetailSheetChrome(
             title: "Protection Details",
-            subtitle: "Suspicious launch agents, daemons and quarantined executables. Checked items will be moved to the 7-day quarantine.",
-            selectedSummary: "Selected: \(selection.count) of \(items.count)",
+            subtitle: "Persistence threats are quarantined; selected background apps get SIGTERM. Review both — Apple system processes are listed for visibility but rarely safe to quit.",
+            selectedSummary: summary,
             onDone: onDone
         ) {
             List {
-                ForEach(items) { (item: ThreatItem) in
-                    HStack(spacing: 8) {
-                        Toggle("", isOn: toggleBinding(for: item.url, in: $selection)).labelsHidden()
-                        Image(systemName: item.severity.symbol)
-                            .foregroundStyle(item.severity.color)
-                            .frame(width: 18)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(item.url.lastPathComponent)
-                                .font(.system(size: 13, weight: .medium))
-                            Text(item.url.path)
-                                .font(.system(size: 11, design: .monospaced))
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                                .truncationMode(.middle)
+                if !items.isEmpty {
+                    Section(header: sectionHeader("Persistence threats", count: items.count, total: 0)) {
+                        ForEach(items) { (item: ThreatItem) in
+                            threatRow(item)
                         }
-                        Spacer()
-                        Text(item.severity.label)
-                            .font(.system(size: 9, weight: .semibold))
-                            .padding(.horizontal, 5)
-                            .padding(.vertical, 1)
-                            .background(item.severity.color.opacity(0.18))
-                            .foregroundStyle(item.severity.color)
-                            .clipShape(Capsule())
                     }
-                    .padding(.vertical, 2)
+                }
+                if !backgroundApps.isEmpty {
+                    Section(header: bgHeader) {
+                        ForEach(backgroundApps) { (app: BackgroundApp) in
+                            backgroundRow(app)
+                        }
+                    }
                 }
             }
             .listStyle(.inset(alternatesRowBackgrounds: true))
             .scrollContentBackground(.hidden)
         }
+    }
+
+    private var bgHeader: some View {
+        HStack {
+            Text("Background apps").font(.system(size: 12, weight: .semibold))
+            Spacer()
+            Text("\(backgroundApps.count) running")
+                .font(.system(size: 10, design: .monospaced))
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func threatRow(_ item: ThreatItem) -> some View {
+        HStack(spacing: 8) {
+            Toggle("", isOn: toggleBinding(for: item.url, in: $selection)).labelsHidden()
+            Image(systemName: item.severity.symbol)
+                .foregroundStyle(item.severity.color)
+                .frame(width: 18)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(item.url.lastPathComponent)
+                    .font(.system(size: 13, weight: .medium))
+                Text(item.url.path)
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+            Spacer()
+            Text(item.severity.label)
+                .font(.system(size: 9, weight: .semibold))
+                .padding(.horizontal, 5)
+                .padding(.vertical, 1)
+                .background(item.severity.color.opacity(0.18))
+                .foregroundStyle(item.severity.color)
+                .clipShape(Capsule())
+        }
+        .padding(.vertical, 2)
+    }
+
+    private func backgroundRow(_ app: BackgroundApp) -> some View {
+        let tint: Color = app.isAppleProcess ? .secondary : .blue
+        let badge = app.isAppleProcess ? "APPLE" : "3RD-PARTY"
+        return HStack(spacing: 8) {
+            Toggle("", isOn: toggleBinding(for: app.pid, in: $bgAppsSelection)).labelsHidden()
+            Image(systemName: app.isAppleProcess ? "applelogo" : "app.dashed")
+                .foregroundStyle(tint)
+                .frame(width: 18)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(app.name)
+                    .font(.system(size: 13, weight: .medium))
+                Text(app.bundleID)
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+            Spacer()
+            if app.memoryBytes > 0 {
+                Text(app.memoryBytes.formattedBytes)
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(.secondary)
+            }
+            Text(badge)
+                .font(.system(size: 9, weight: .semibold))
+                .padding(.horizontal, 5)
+                .padding(.vertical, 1)
+                .background(tint.opacity(0.18))
+                .foregroundStyle(tint)
+                .clipShape(Capsule())
+        }
+        .padding(.vertical, 2)
     }
 }
 
