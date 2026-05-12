@@ -78,18 +78,8 @@ struct RootView: View {
     /// underWindowBackground material is the only reliable way to defeat
     /// the per-column materials NavigationSplitView applies on macOS —
     /// SwiftUI's `.scrollContentBackground(.hidden)` alone isn't enough.
-    /// The accent gradient lays on top.
     private var unifiedBackdrop: some View {
-        let accent = selection?.accentColor ?? .accentColor
-        return ZStack {
-            UnifiedBackground(material: .underWindowBackground)
-            LinearGradient(
-                colors: [accent.opacity(0.18), accent.opacity(0.04)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        }
-        .ignoresSafeArea()
+        PopupBackground(accent: selection?.accentColor ?? .accentColor)
     }
 
     /// ⌘1..⌘8 jump to top-level modules. Hidden buttons used purely for shortcut routing.

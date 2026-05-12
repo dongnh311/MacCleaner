@@ -37,7 +37,7 @@ struct SidebarView: View {
             Image(systemName: "internaldrive")
                 .foregroundStyle(.secondary)
                 .font(.caption)
-            DiskFreeText()
+            DiskFreeText(status: container.menuBarStatus)
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Spacer()
@@ -56,31 +56,18 @@ struct SidebarView: View {
     }
 }
 
+/// Subscribes to the menu-bar ticker (1s) instead of running its own 60s
+/// timer so the footer follows Finder within a second of a Clean.
+/// Uses `.onReceive(diskFreeBytes)` rather than `@ObservedObject` so the
+/// node only re-renders on disk changes — not every CPU/RAM/net tick.
 private struct DiskFreeText: View {
-    @EnvironmentObject private var container: AppContainer
+    let status: MenuBarStatusModel
     @State private var label: String = "—"
-    @State private var refreshTimer: Timer?
 
     var body: some View {
         Text(label)
-            .onAppear {
-                refresh()
-                let timer = Timer(timeInterval: 60.0, repeats: true) { _ in
-                    Task { @MainActor in refresh() }
-                }
-                RunLoop.main.add(timer, forMode: .common)
-                refreshTimer = timer
+            .onReceive(status.$diskFreeBytes.combineLatest(status.$diskTotalBytes)) { free, total in
+                label = total > 0 ? "\(free.formattedBytes) free" : "—"
             }
-            .onDisappear {
-                refreshTimer?.invalidate()
-                refreshTimer = nil
-            }
-    }
-
-    private func refresh() {
-        let sample = container.systemMetrics.sampleDisk()
-        if sample.totalBytes > 0 {
-            label = "\(sample.freeBytes.formattedBytes) free"
-        }
     }
 }

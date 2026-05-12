@@ -553,6 +553,7 @@ private struct CleanupDetailSheet: View {
                 }
             }
             .listStyle(.inset(alternatesRowBackgrounds: true))
+            .scrollContentBackground(.hidden)
         }
     }
 }
@@ -598,6 +599,7 @@ private struct ProtectionDetailSheet: View {
                 }
             }
             .listStyle(.inset(alternatesRowBackgrounds: true))
+            .scrollContentBackground(.hidden)
         }
     }
 }
@@ -641,6 +643,7 @@ private struct SpeedDetailSheet: View {
                 }
             }
             .listStyle(.inset(alternatesRowBackgrounds: true))
+            .scrollContentBackground(.hidden)
         }
     }
 }
@@ -680,6 +683,7 @@ private struct DetailSheetChrome<Content: View>: View {
             .padding(Spacing.md)
         }
         .frame(width: 720, height: 540)
+        .background(PopupBackground())
     }
 }
 
@@ -792,6 +796,7 @@ private struct CleanupLogSheet: View {
                 }
             }
             .listStyle(.inset(alternatesRowBackgrounds: true))
+            .scrollContentBackground(.hidden)
             .frame(maxHeight: .infinity)
 
             Divider()
@@ -804,6 +809,7 @@ private struct CleanupLogSheet: View {
             .padding(Spacing.md)
         }
         .frame(width: 720, height: 540)
+        .background(PopupBackground())
     }
 
     @ViewBuilder

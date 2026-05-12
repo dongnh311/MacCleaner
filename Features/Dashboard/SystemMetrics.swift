@@ -130,9 +130,15 @@ actor SystemMetrics {
     }
 
     nonisolated func sampleDisk(at path: String = NSHomeDirectory()) -> DiskSample {
-        let attrs = try? FileManager.default.attributesOfFileSystem(forPath: path)
-        let total = (attrs?[.systemSize] as? NSNumber)?.int64Value ?? 0
-        let free = (attrs?[.systemFreeSize] as? NSNumber)?.int64Value ?? 0
+        // `volumeAvailableCapacityForImportantUsageKey` matches Finder /
+        // System Settings — includes APFS purgeable space, which is what
+        // gets freed first after a Clean. `systemFreeSize` reports strict
+        // free bytes and lags by GB until macOS reclaims purgeable.
+        let url = URL(fileURLWithPath: path)
+        let keys: Set<URLResourceKey> = [.volumeTotalCapacityKey, .volumeAvailableCapacityForImportantUsageKey]
+        let values = try? url.resourceValues(forKeys: keys)
+        let total = Int64(values?.volumeTotalCapacity ?? 0)
+        let free = values?.volumeAvailableCapacityForImportantUsage ?? 0
         return DiskSample(totalBytes: total, freeBytes: free)
     }
 }

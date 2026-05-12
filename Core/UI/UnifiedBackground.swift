@@ -25,3 +25,24 @@ struct UnifiedBackground: NSViewRepresentable {
         nsView.blendingMode = blendingMode
     }
 }
+
+/// Shared backdrop for in-app detail / info sheets so popups blend with
+/// the main window's `unifiedBackdrop` (NSVisualEffectView + accent
+/// gradient). Apply via `.background(PopupBackground())`. Skip for system
+/// confirmation dialogs and error alerts — those keep their native chrome.
+struct PopupBackground: View {
+
+    var accent: Color = .accentColor
+
+    var body: some View {
+        ZStack {
+            UnifiedBackground(material: .underWindowBackground)
+            LinearGradient(
+                colors: [accent.opacity(0.18), accent.opacity(0.04)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        }
+        .ignoresSafeArea()
+    }
+}

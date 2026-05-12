@@ -176,7 +176,9 @@ private struct TimezonePickerSheet: View {
                 .buttonStyle(.plain)
             }
             .listStyle(.inset)
+            .scrollContentBackground(.hidden)
         }
         .frame(width: 480, height: 480)
+        .background(PopupBackground())
     }
 }

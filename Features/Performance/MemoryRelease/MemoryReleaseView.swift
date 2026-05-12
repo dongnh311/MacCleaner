@@ -94,9 +94,8 @@ struct MemoryReleaseView: View {
                     .font(.caption).foregroundStyle(.secondary)
                 HStack {
                     Button {
-                        if let url = URL(string: "/Applications/Utilities/Activity Monitor.app") {
-                            NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration())
-                        }
+                        let url = URL(fileURLWithPath: "/System/Applications/Utilities/Activity Monitor.app")
+                        NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration())
                     } label: {
                         Label("Open Activity Monitor", systemImage: "arrow.up.right.square")
                     }

@@ -98,10 +98,13 @@ actor DiskIOService {
     // MARK: - IORegistry walks
 
     private nonisolated static func readVolumes() -> [DiskVolume] {
+        // `volumeAvailableCapacityForImportantUsage` matches Finder —
+        // includes purgeable space, which is what gets freed first after
+        // a Clean. The strict `volumeAvailableCapacity` key lags by GB.
         let keys: [URLResourceKey] = [
             .volumeNameKey,
             .volumeTotalCapacityKey,
-            .volumeAvailableCapacityKey,
+            .volumeAvailableCapacityForImportantUsageKey,
             .volumeIsInternalKey,
             .volumeIsReadOnlyKey,
             .volumeURLForRemountingKey
@@ -117,7 +120,7 @@ actor DiskIOService {
                 mountPath: url.path,
                 bsdName: bsd,
                 totalBytes: Int64(total),
-                freeBytes: Int64(v?.volumeAvailableCapacity ?? 0),
+                freeBytes: v?.volumeAvailableCapacityForImportantUsage ?? 0,
                 isInternal: v?.volumeIsInternal ?? false,
                 isReadOnly: v?.volumeIsReadOnly ?? false
             ))

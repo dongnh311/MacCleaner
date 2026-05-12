@@ -320,8 +320,9 @@ enum WhitelistGuard {
         // Refresh user-added paths from UserDefaults at the same time so
         // clean-time protection is always in sync with the latest
         // Settings edits without needing a separate trigger.
+        // (`reloadCustomApps` rebuilds `protectedBundlesCache` for us — the
+        // new live IDs are folded in via that path.)
         reloadCustomConfig()
-        rebuildProtectedBundlesCache()
     }
 
     /// Snapshot of currently running executable names. Reads the cache

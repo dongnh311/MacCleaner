@@ -436,6 +436,7 @@ private struct NewDocumentSheet: View {
         }
         .padding(Spacing.lg)
         .frame(width: 380)
+        .background(PopupBackground())
         .onAppear {
             widthText = String(Int(initial.width))
             heightText = String(Int(initial.height))
