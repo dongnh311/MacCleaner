@@ -248,24 +248,18 @@ actor ProcessMonitor {
             let scanner = Scanner(string: trimmed)
             scanner.charactersToBeSkipped = .whitespaces
 
-            var pid: Int32 = 0
-            var rssKB: Int64 = 0
-            var pcpu: Double = 0
-            var user: NSString?
+            guard let pid = scanner.scanInt32(),
+                  let rssKB = scanner.scanInt64(),
+                  let pcpu = scanner.scanDouble(),
+                  let userStr = scanner.scanUpToCharacters(from: .whitespaces) else { continue }
 
-            guard scanner.scanInt32(&pid),
-                  scanner.scanInt64(&rssKB),
-                  scanner.scanDouble(&pcpu),
-                  scanner.scanUpToCharacters(from: .whitespaces, into: &user) else { continue }
-
-            let userStr = (user as String?) ?? ""
-            let comm = String(trimmed[scanner.string.index(scanner.string.startIndex, offsetBy: scanner.currentIndex.utf16Offset(in: scanner.string))...])
+            let comm = String(scanner.string[scanner.currentIndex...])
                 .trimmingCharacters(in: .whitespaces)
 
             let url = URL(fileURLWithPath: comm)
-            let displayName = url.pathComponents.contains(where: { $0.hasSuffix(".app") })
-                ? (url.pathComponents.first(where: { $0.hasSuffix(".app") })?.replacingOccurrences(of: ".app", with: "") ?? url.lastPathComponent)
-                : url.lastPathComponent
+            let displayName = url.pathComponents.first(where: { $0.hasSuffix(".app") })
+                .map { $0.replacingOccurrences(of: ".app", with: "") }
+                ?? url.lastPathComponent
 
             results.append(ProcessSnapshot(
                 id: pid,

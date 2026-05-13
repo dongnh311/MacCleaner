@@ -277,24 +277,31 @@ struct ShredderView: View {
         guard let handle = try? FileHandle(forWritingTo: URL(fileURLWithPath: path)) else { return false }
         defer { try? handle.close() }
 
-        let chunkSize = 1 << 20  // 1 MiB
-        for _ in 0..<max(1, passes) {
-            try? handle.seek(toOffset: 0)
-            var written: Int64 = 0
-            while written < size {
-                let n = min(Int64(chunkSize), size - written)
-                var bytes = Data(count: Int(n))
-                bytes.withUnsafeMutableBytes { buf in
-                    if let base = buf.baseAddress {
-                        _ = SecRandomCopyBytes(kSecRandomDefault, Int(n), base)
+        let chunkSize = Int(min(Int64(1 << 20), size))  // ≤ 1 MiB, reused across all chunks/passes
+        var buffer = Data(count: chunkSize)
+        do {
+            // Surface seek/write failures instead of letting `try?` swallow
+            // them — a user who chose "Shred" doesn't want a plain unlink
+            // posing as a secure wipe when the random-byte pass died early.
+            for _ in 0..<max(1, passes) {
+                try handle.seek(toOffset: 0)
+                var written: Int64 = 0
+                while written < size {
+                    let n = Int(min(Int64(chunkSize), size - written))
+                    buffer.withUnsafeMutableBytes { buf in
+                        if let base = buf.baseAddress {
+                            _ = SecRandomCopyBytes(kSecRandomDefault, n, base)
+                        }
                     }
+                    try handle.write(contentsOf: buffer.prefix(n))
+                    written += Int64(n)
                 }
-                try? handle.write(contentsOf: bytes)
-                written += n
+                try handle.synchronize()
             }
-            try? handle.synchronize()
+        } catch {
+            Log.app.error("shredder: overwrite failed \(path, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            return false
         }
-        try? handle.close()
 
         do {
             try FileManager.default.removeItem(atPath: path)
