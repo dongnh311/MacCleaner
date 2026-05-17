@@ -45,6 +45,11 @@ enum DefaultsKeys {
     /// Paint right-side panel (Layers + History) visibility.
     static let paintPanelVisible = "Paint.panelVisible.v1"
 
+    /// Scroll Denoiser master enable. Bool.
+    static let scrollDenoiserEnabled = "ScrollDenoiser.enabled.v1"
+    /// Scroll Denoiser tunable settings — JSON-encoded `DirectionLockSettings`.
+    static let scrollDenoiserSettings = "ScrollDenoiser.settings.v1"
+
     /// User-added folders / files that the cleanup engine must never
     /// touch. v1 = JSON-encoded array of absolute paths.
     static let whitelistCustomPaths = "Whitelist.customPaths.v1"

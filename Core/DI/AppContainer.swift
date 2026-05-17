@@ -42,6 +42,7 @@ final class AppContainer: ObservableObject {
     let appUsageLogger: AppUsageLogger
     let appMetadata = AppMetadataResolver()
     let cleanupResultsCache = CleanupResultsCache()
+    let scrollDenoiser: ScrollDenoiserController
 
     /// Cross-window navigation requests. Set by MenuBarExtra; consumed by RootView.
     @Published var pendingNavigation: SidebarItem?
@@ -97,6 +98,7 @@ final class AppContainer: ObservableObject {
         self.bluetoothService = BluetoothService()
         self.diskIOService = DiskIOService()
         self.systemActivityService = SystemActivityService()
+        self.scrollDenoiser = ScrollDenoiserController()
 
         self.menuBarStatus = MenuBarStatusModel(
             systemMetrics: systemMetrics,

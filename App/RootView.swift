@@ -171,6 +171,8 @@ struct RootView: View {
             ClockView()
         case .paint:
             PaintView()
+        case .scrollDenoiser:
+            ScrollDenoiserView()
         case .malware:
             MalwareView()
         case .privacy:

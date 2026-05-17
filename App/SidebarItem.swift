@@ -43,6 +43,7 @@ enum SidebarItem: String, CaseIterable, Hashable, Identifiable {
     case myTools
     case clock
     case paint
+    case scrollDenoiser
 
     var id: String { rawValue }
 
@@ -54,7 +55,7 @@ enum SidebarItem: String, CaseIterable, Hashable, Identifiable {
         case .maintenance, .loginItems, .processMonitor, .usageTrends, .memory, .battery, .sensors, .network, .bluetooth, .diskMonitor: return .performance
         case .uninstaller, .updater: return .applications
         case .spaceLens, .largeOldFiles, .duplicates, .similarPhotos: return .files
-        case .shredder, .quarantine, .myTools, .clock, .paint: return .tools
+        case .shredder, .quarantine, .myTools, .clock, .paint, .scrollDenoiser: return .tools
         }
     }
 
@@ -91,6 +92,7 @@ enum SidebarItem: String, CaseIterable, Hashable, Identifiable {
         case .myTools: return "My Tools"
         case .clock: return "Clock"
         case .paint: return "Paint"
+        case .scrollDenoiser: return "Scroll Denoiser"
         }
     }
 
@@ -127,6 +129,7 @@ enum SidebarItem: String, CaseIterable, Hashable, Identifiable {
         case .myTools: return "star"
         case .clock: return "clock"
         case .paint: return "paintbrush.pointed"
+        case .scrollDenoiser: return "cursorarrow.click.2"
         }
     }
 
