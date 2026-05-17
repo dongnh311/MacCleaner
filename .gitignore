@@ -55,4 +55,4 @@ fastlane/test_output
 
 # Design handoff bundle assets — heavy screenshots, regenerable from the
 # upstream Figma export. Spec markdown + CSS + HTML kits stay in-tree.
-design_handoff_maccleaner/assets/
+macOS/design_handoff_maccleaner/assets/
