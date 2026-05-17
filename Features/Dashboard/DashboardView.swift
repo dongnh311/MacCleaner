@@ -8,16 +8,14 @@ struct DashboardView: View {
 
     @State private var cpuHistory: [CPUSample] = []
     @State private var memHistory: [(date: Date, percent: Double)] = []
+    @State private var gpuHistory: [(date: Date, percent: Double)] = []
+    @State private var gpu: GPUSample = .zero
     @State private var disk: DiskSample = DiskSample(totalBytes: 0, freeBytes: 0)
     @State private var memory: MemoryStats?
     @State private var battery: BatteryStats = .empty
     @State private var topProcesses: [ProcessSnapshot] = []
     @State private var ticking: Bool = false
 
-    private let columns = [
-        GridItem(.flexible(minimum: 200), spacing: Spacing.md),
-        GridItem(.flexible(minimum: 200), spacing: Spacing.md)
-    ]
     private let historyCap = 60
 
     var body: some View {
@@ -38,13 +36,21 @@ struct DashboardView: View {
             ScrollView {
                 VStack(spacing: Spacing.md) {
                     heroDiskCard
-                    LazyVGrid(columns: columns, spacing: Spacing.md) {
-                        cpuCard
-                        memoryCard
-                        if battery.isPresent {
-                            batteryCard
+                    // Two independent columns so each card keeps its natural
+                    // height and sits flush to the top of its column — avoids
+                    // LazyVGrid stretching shorter cards to match taller ones.
+                    HStack(alignment: .top, spacing: Spacing.md) {
+                        VStack(spacing: Spacing.md) {
+                            cpuCard
+                            gpuCard
+                            if battery.isPresent {
+                                batteryCard
+                            }
                         }
-                        healthCard
+                        VStack(spacing: Spacing.md) {
+                            memoryCard
+                            healthCard
+                        }
                     }
                     topProcessesCard
                 }
@@ -205,6 +211,42 @@ struct DashboardView: View {
         }
     }
 
+    // MARK: - GPU
+
+    private var gpuCard: some View {
+        StatCard(title: "GPU", icon: "cpu.fill", accent: .orange) {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(String(format: "%.1f", gpu.utilizationPercent))
+                        .font(.system(size: 28, weight: .semibold, design: .monospaced))
+                        .contentTransition(.numericText())
+                    Text("%")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                }
+                Chart {
+                    ForEach(gpuHistory.indices, id: \.self) { i in
+                        let s = gpuHistory[i]
+                        AreaMark(x: .value("t", i), yStart: .value("min", 0), yEnd: .value("p", s.percent))
+                            .foregroundStyle(LinearGradient(
+                                colors: [Color.orange.opacity(0.5), Color.orange.opacity(0.05)],
+                                startPoint: .top, endPoint: .bottom
+                            ))
+                            .interpolationMethod(.monotone)
+                        LineMark(x: .value("t", i), y: .value("p", s.percent))
+                            .foregroundStyle(Color.orange)
+                            .interpolationMethod(.monotone)
+                    }
+                }
+                .chartYScale(domain: 0...100)
+                .chartXAxis(.hidden)
+                .chartYAxis(.hidden)
+                .frame(height: 60)
+            }
+        }
+    }
+
     // MARK: - Battery
 
     private var batteryCard: some View {
@@ -254,6 +296,10 @@ struct DashboardView: View {
                     GridRow {
                         Text("Pressure").font(.caption).foregroundStyle(.secondary)
                         Text(String(format: "%.1f%%", pressure)).font(.system(.caption, design: .monospaced))
+                    }
+                    GridRow {
+                        Text("GPU").font(.caption).foregroundStyle(.secondary)
+                        Text(String(format: "%.1f%%", gpu.utilizationPercent)).font(.system(.caption, design: .monospaced))
                     }
                     GridRow {
                         Text("Disk").font(.caption).foregroundStyle(.secondary)
@@ -326,25 +372,32 @@ struct DashboardView: View {
     // MARK: - Refresh
 
     private func refresh() async {
-        // Disk + memory + battery are fast (sync or near-instant Mach calls).
-        // Run them inline to update the UI immediately.
+        // Disk read is a nonisolated sync call.
         disk = container.systemMetrics.sampleDisk()
-        memory = await container.memoryService.snapshot()
-        battery = await container.batteryService.snapshot()
 
-        // CPU sampling computes a delta from the previous sample, so the very
-        // first sample reads as 0% — still useful for kick-starting the chart.
-        let cpu = await container.systemMetrics.sampleCPU()
+        // All other samples are independent — kick them off in parallel so the
+        // tick takes as long as the slowest (ps ≈ 100ms) instead of summing.
+        async let memSample = container.memoryService.snapshot()
+        async let batterySample = container.batteryService.snapshot()
+        async let cpuSample = container.systemMetrics.sampleCPU()
+        async let gpuSample = container.gpuStatsService.sample()
+        async let procs = container.processMonitor.snapshot()
+
+        memory = await memSample
+        battery = await batterySample
+        // CPU sampling deltas against the previous tick — first sample reads 0%.
+        let cpu = await cpuSample
+        gpu = await gpuSample
+        topProcesses = await procs.sorted { $0.cpuPercent > $1.cpuPercent }
+
         cpuHistory.append(cpu)
         if cpuHistory.count > historyCap { cpuHistory.removeFirst(cpuHistory.count - historyCap) }
         if let mem = memory {
             memHistory.append((Date(), mem.pressurePercent))
             if memHistory.count > historyCap { memHistory.removeFirst(memHistory.count - historyCap) }
         }
-
-        // Process snapshot shells out to ps — slowest call (~100ms).
-        topProcesses = await container.processMonitor.snapshot()
-            .sorted { $0.cpuPercent > $1.cpuPercent }
+        gpuHistory.append((Date(), gpu.utilizationPercent))
+        if gpuHistory.count > historyCap { gpuHistory.removeFirst(gpuHistory.count - historyCap) }
     }
 }
 
